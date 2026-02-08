@@ -8,92 +8,67 @@ export const dynamic = 'force-dynamic';
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [idpUrl, setIdpUrl] = useState('');
-  const [isChecking, setIsChecking] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const errorParam = searchParams.get('error');
-    if (errorParam) {
-      const errorMessages: Record<string, string> = {
-        'csrf_validation_failed': 'Security validation failed. Please try again.',
-        'missing_access_token': 'Login incomplete. Please try again.',
-        'invalid_token': 'Invalid token received. Please try again.',
-        'callback_failed': 'Callback processing failed. Please try again.',
-      };
-      setError(errorMessages[errorParam] || `Error: ${errorParam}`);
-      setIsChecking(false);
-      return;
-    }
-
-    async function checkAuthentication() {
+    const checkAndAutoLogin = async () => {
       try {
-        const IDP_SERVER = process.env.NEXT_PUBLIC_IDP_SERVER || "http://localhost:3000";
-        const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID || "client-b";
-        const REDIRECT_URI = process.env.NEXT_PUBLIC_REDIRECT_URI || "http://localhost:3002/api/auth/callback";
-
-        console.log('[LoginPage] Checking local authentication...');
-        let response = await fetch('/api/user');
-
-        if (response.ok) {
-          console.log('[LoginPage] ✅ User already authenticated locally, redirecting to dashboard');
+        // Check if already authenticated locally
+        const userRes = await fetch('/api/user');
+        if (userRes.ok) {
+          console.log('[LoginPage] ✅ Already authenticated, redirecting to dashboard');
           router.push('/dashboard');
           return;
         }
 
-        console.log('[LoginPage] Checking IDP for existing session...');
-        try {
-          const idpResponse = await fetch(`${IDP_SERVER}/api/auth/token?check=true`, {
-            credentials: 'include',
-          });
-
-          if (idpResponse.ok) {
-            const data = await idpResponse.json();
-            if (data.success && data.accessToken) {
-              console.log('[LoginPage] ✅ Found valid IDP session, auto-logging in...');
-              const callbackResponse = await fetch('/api/auth/callback?access_token=' + encodeURIComponent(data.accessToken));
-              if (callbackResponse.ok) {
-                console.log('[LoginPage] ✅ Session established, redirecting to dashboard');
-                router.push('/dashboard');
-                return;
-              }
-            }
-          }
-        } catch (idpError) {
-          console.log('[LoginPage] IDP check error (expected if not logged in):', idpError);
-        }
-
-        const state = Array.from(crypto.getRandomValues(new Uint8Array(32)))
-          .map(b => b.toString(16).padStart(2, '0'))
-          .join('');
-        
-        // Store state for CSRF validation in callback
-        if (typeof window !== 'undefined') {
-          try {
-            const { storeState } = await import('@/lib/state-store');
-            storeState(state);
-          } catch (e) {
-            console.log('[LoginPage] State store load error:', e);
-          }
-        }
-
-        const authorizeUrl = `${IDP_SERVER}/api/auth/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&state=${state}&scopes=profile,email`;
-        setIdpUrl(authorizeUrl);
-      } catch (error) {
-        console.error('[LoginPage] Error during authentication check:', error);
-        setError('Error checking authentication');
-      } finally {
-        setIsChecking(false);
+        // Attempt silent login (redirect to IDP authorize endpoint)
+        // If user has IDP session, they will be auto-approved
+        // If not, IDP will show login form
+        console.log('[LoginPage] Attempting silent login...');
+        window.location.href = '/api/auth/silent-login';
+        return;
+      } catch (err) {
+        console.log('[LoginPage] Error during check:', err);
+        setLoading(false);
       }
+    };
+
+    // Check for error in URL
+    const errorParam = searchParams.get('error');
+    if (errorParam) {
+      // Silent login failed, show login form instead
+      console.log('[LoginPage] Silent login failed, showing login form');
+      setLoading(false);
+      return;
     }
 
-    checkAuthentication();
+    checkAndAutoLogin();
   }, [router, searchParams]);
 
-  if (isChecking) {
+  const handleLogin = async () => {
+    try {
+      setLoading(true);
+      // Call the /api/auth/start endpoint to get the authorize URL
+      const res = await fetch('/api/auth/start');
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setError('Failed to initiate login');
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Failed to initiate login');
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
     return (
       <div style={{ padding: '20px', maxWidth: '400px', margin: '50px auto', textAlign: 'center' }}>
-        <h1>Client-B - Checking Authentication...</h1>
+        <h1>Checking authentication...</h1>
         <p>Please wait...</p>
       </div>
     );
@@ -101,25 +76,28 @@ export default function LoginPage() {
 
   return (
     <div style={{ padding: '20px', maxWidth: '400px', margin: '50px auto', textAlign: 'center' }}>
-      <h1>Client-B - Login</h1>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <p>Click below to login via SSO</p>
-      {idpUrl && (
-        <a
-          href={idpUrl}
-          style={{
-            display: 'inline-block',
-            padding: '10px 20px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            textDecoration: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-        >
-          Login with IDP Server
-        </a>
+      <h1>Client B Login</h1>
+      {error && (
+        <div style={{ color: 'red', marginBottom: '20px', padding: '10px', backgroundColor: '#ffeeee', borderRadius: '4px' }}>
+          {error}
+        </div>
       )}
+      <p>Login via SSO</p>
+      <button
+        onClick={handleLogin}
+        disabled={loading}
+        style={{
+          padding: '10px 20px',
+          backgroundColor: '#007bff',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          fontSize: '16px',
+        }}
+      >
+        {loading ? 'Logging in...' : 'Login with IDP'}
+      </button>
     </div>
   );
 }

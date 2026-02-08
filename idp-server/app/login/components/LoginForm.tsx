@@ -74,7 +74,7 @@ export default function LoginForm() {
       const oauthParams = getOAuthParams();
       if (Object.keys(oauthParams).length > 0) {
         // OAuth2 flow - redirect back to authorize endpoint
-        const authorizeUrl = new URL("/oauth/authorize", window.location.origin);
+        const authorizeUrl = new URL("/api/auth/authorize", window.location.origin);
         Object.entries(oauthParams).forEach(([key, value]) => {
           authorizeUrl.searchParams.set(key, value);
         });

@@ -7,6 +7,10 @@ export async function POST(request: NextRequest) {
   try {
     console.log("[/api/auth/logout] Processing logout...");
     
+    // Get logout type from query params (local or global)
+    const url = new URL(request.url);
+    const isGlobalLogout = url.searchParams.get('global') === 'true';
+    
     // Get session cookie
     const sessionCookie = request.cookies.get("app_session")?.value;
     
@@ -19,6 +23,29 @@ export async function POST(request: NextRequest) {
         }
       } catch (e) {
         console.log("[/api/auth/logout] ⚠️ Failed to parse session cookie");
+      }
+    }
+
+    // If global logout requested, also call IDP logout
+    if (isGlobalLogout) {
+      try {
+        console.log("[/api/auth/logout] Performing global logout on IDP...");
+        const idpLogoutRes = await fetch(`${IDP_SERVER}/api/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // Pass the IDP session cookie if available
+            Cookie: request.headers.get('cookie') || '',
+          },
+          body: JSON.stringify({}),
+        });
+        
+        if (idpLogoutRes.ok) {
+          console.log("[/api/auth/logout] ✅ Global logout on IDP successful");
+        }
+      } catch (err) {
+        console.log("[/api/auth/logout] Warning: IDP global logout failed:", err);
+        // Continue even if IDP logout fails - we still clear local session
       }
     }
 

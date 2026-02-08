@@ -3,14 +3,18 @@ import { getAccessToken } from "@/lib/session-store";
 
 const IDP_SERVER = process.env.NEXT_PUBLIC_IDP_SERVER || "http://localhost:3000";
 
+/**
+ * GET /api/accounts
+ * 
+ * Fetches all accounts the user is logged into from the IDP.
+ */
 export async function GET(request: NextRequest) {
   try {
     // Get the session cookie
     const sessionCookie = request.cookies.get("app_session")?.value;
-    console.log("[/api/user] Session cookie:", sessionCookie ? "✅ Present" : "❌ Missing");
 
     if (!sessionCookie) {
-      console.log("[/api/user] ❌ No session cookie found");
+      console.log("[/api/accounts] ❌ No session cookie found");
       return NextResponse.json(
         { success: false, error: "Not authenticated" },
         { status: 401 }
@@ -21,7 +25,6 @@ export async function GET(request: NextRequest) {
     try {
       sessionData = JSON.parse(sessionCookie);
     } catch (e) {
-      console.log("[/api/user] ❌ Failed to parse session:", e);
       return NextResponse.json(
         { success: false, error: "Invalid session" },
         { status: 401 }
@@ -30,49 +33,45 @@ export async function GET(request: NextRequest) {
 
     const { sessionId } = sessionData;
     if (!sessionId) {
-      console.log("[/api/user] ❌ No sessionId in cookie");
       return NextResponse.json(
         { success: false, error: "Invalid session" },
         { status: 401 }
       );
     }
 
-    // Retrieve access token from server-side store
+    // Get access token from server store
     const accessToken = await getAccessToken(sessionId);
     if (!accessToken) {
-      console.log("[/api/user] ❌ No access token found");
       return NextResponse.json(
         { success: false, error: "Session expired" },
         { status: 401 }
       );
     }
 
-    console.log("[/api/user] ✅ Got access token from store");
-
-    // Fetch user profile from IDP using the access token
-    const userResponse = await fetch(`${IDP_SERVER}/api/user/profile`, {
+    // Fetch accounts from IDP
+    const accountsResponse = await fetch(`${IDP_SERVER}/api/auth/accounts`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     });
 
-    if (!userResponse.ok) {
-      console.log("[/api/user] ❌ IDP error:", userResponse.status);
+    if (!accountsResponse.ok) {
+      console.log("[/api/accounts] ❌ IDP error:", accountsResponse.status);
       return NextResponse.json(
-        { success: false, error: "Failed to fetch user" },
+        { success: false, error: "Failed to fetch accounts" },
         { status: 401 }
       );
     }
 
-    const userData = await userResponse.json();
-    console.log("[/api/user] ✅ Got user data");
+    const data = await accountsResponse.json();
+    console.log("[/api/accounts] ✅ Got accounts from IDP");
 
     return NextResponse.json({
       success: true,
-      data: userData.data,
+      data: data,
     });
   } catch (error) {
-    console.error("[/api/user] ❌ Error:", error);
+    console.error("[/api/accounts] Error:", error);
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 }

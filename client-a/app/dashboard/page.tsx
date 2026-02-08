@@ -2,32 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUser, setUser, clearAuth } from '@/lib/auth';
+import AccountSwitcher from '@/app/components/AccountSwitcher';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUserState] = useState<any>(null);
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const fetchUser = async () => {
       try {
-        // Step 1: Check if user is in sessionStorage
-        let cachedUser = getUser();
-        if (cachedUser) {
-          console.log('[Dashboard] ✅ User found in sessionStorage');
-          setUserState(cachedUser);
-          setLoading(false);
-          return;
-        }
-
-        // Step 2: Fetch user from backend API (which uses server-side access token)
         console.log('[Dashboard] Fetching user from /api/user');
         const response = await fetch('/api/user');
 
         if (response.status === 401) {
-          // Not authenticated, redirect to login
           console.log('[Dashboard] ❌ Not authenticated, redirecting to login');
           router.push('/login');
           return;
@@ -35,78 +25,115 @@ export default function DashboardPage() {
 
         if (!response.ok) {
           console.log('[Dashboard] ❌ Error fetching user:', response.status);
-          router.push('/login');
+          setError('Failed to fetch user data');
+          setLoading(false);
           return;
         }
 
         const data = await response.json();
+        console.log('[Dashboard] ✅ Got user:', data);
         if (data.success && data.data) {
-          console.log('[Dashboard] ✅ Got user from API, caching in sessionStorage');
           setUser(data.data);
-          setUserState(data.data);
         } else {
-          console.log('[Dashboard] ❌ Invalid response from /api/user');
-          router.push('/login');
-          return;
+          setError('Invalid response from server');
         }
-      } catch (error) {
-        console.log('[Dashboard] ❌ Error checking auth:', error);
-        router.push('/login');
-        return;
+      } catch (err) {
+        console.error('[Dashboard] Error:', err);
+        setError('Error fetching user data');
       } finally {
         setLoading(false);
       }
     };
 
-    checkAuth();
-  }, [router]);
+    fetchUser();
+  }, [router, refreshKey]);
 
-  const handleLogout = async () => {
+  const handleLogout = async (isGlobal: boolean = false) => {
     try {
-      // Call logout endpoint
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch (error) {
-      console.error('Logout error:', error);
+      console.log('[Dashboard] Logging out (global=' + isGlobal + ')...');
+      const logoutUrl = isGlobal ? '/api/auth/logout?global=true' : '/api/auth/logout';
+      const res = await fetch(logoutUrl, { method: 'POST' });
+      if (res.ok) {
+        console.log('[Dashboard] ✅ Logout successful');
+      }
+    } catch (err) {
+      console.error('[Dashboard] Logout error:', err);
     }
-    
-    // Clear client-side data
-    clearAuth();
     router.push('/login');
   };
 
-  if (loading) return <div style={{ padding: '20px' }}>Loading...</div>;
+  const handleAccountSwitch = () => {
+    // Refresh user data after account switch
+    setRefreshKey(prev => prev + 1);
+  };
+
+  if (loading) {
+    return (
+      <div style={{ padding: '20px', textAlign: 'center' }}>
+        <h1>Loading...</h1>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
+        <h1>Error</h1>
+        <p style={{ color: 'red' }}>{error}</p>
+        <button onClick={() => router.push('/login')}>Back to Login</button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
-      <h1>Client-A Dashboard</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h1>Client A Dashboard</h1>
+        {user && <AccountSwitcher currentUser={user} onAccountSwitch={handleAccountSwitch} />}
+      </div>
       
       {user ? (
         <>
-          <div style={{ marginBottom: '20px', padding: '10px', backgroundColor: '#f0f0f0' }}>
-            <h2>Welcome, {user.name}!</h2>
-            <p>Email: {user.email}</p>
-            <p>User ID: {user.id}</p>
+          <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#e8f4f8', borderRadius: '4px' }}>
+            <h2>Welcome, {user.name || user.email}!</h2>
+            <p><strong>Email:</strong> {user.email}</p>
+            <p><strong>User ID:</strong> {user.id}</p>
           </div>
 
-          <div style={{ marginBottom: '20px', padding: '10px', backgroundColor: '#e0f0ff' }}>
-            <p>You are authenticated on Client-A via IDP Server SSO</p>
-          </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={() => handleLogout(false)}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#ffc107',
+                color: '#000',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '16px',
+              }}
+            >
+              Logout (Local)
+            </button>
 
-          <button
-            onClick={handleLogout}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#ff4444',
-              color: 'white',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            Logout from Client-A
-          </button>
+            <button
+              onClick={() => handleLogout(true)}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#dc3545',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '16px',
+              }}
+            >
+              Logout (Global)
+            </button>
+          </div>
         </>
       ) : (
-        <p>Not authenticated. Redirecting to login...</p>
+        <p>No user data. Redirecting to login...</p>
       )}
     </div>
   );
