@@ -1,0 +1,45 @@
+{
+  "name": "idp-server",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "check:env": "tsx scripts/check-env.ts",
+    "check:supabase": "tsx scripts/check-supabase.ts",
+    "check:all": "npm run check:env && npm run check:supabase",
+    "setup:db": "tsx scripts/setup-db.ts",
+    "cleanup:db": "tsx scripts/cleanup-db.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.0",
+    "axios": "^1.13.4",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.3.1",
+    "jose": "^6.1.3",
+    "jsonwebtoken": "^9.0.2",
+    "next": "16.1.6",
+    "nodemailer": "^7.0.13",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20",
+    "@types/nodemailer": "^7.0.9",
+    "@types/pg": "^8.16.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "pg": "^8.18.0",
+    "tailwindcss": "^4",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}
