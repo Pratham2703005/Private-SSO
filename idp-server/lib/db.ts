@@ -723,7 +723,7 @@ export async function getSessionLogons(sessionId: string) {
         last_active_at,
         revoked,
         revoked_at,
-        user_accounts(id, email, name)
+        user_accounts(id, email, name, is_primary)
       `
       )
       .eq("session_id", sessionId)

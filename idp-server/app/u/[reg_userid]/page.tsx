@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { getSession, getUserById } from "@/lib/db";
 import Link from "next/link";
 import { AccountLayout } from "@/components/account";
+import { getAccountByIndex } from "@/lib/account-indexing";
 import {
   Card,
   CardHeader,
@@ -14,25 +15,47 @@ import {
 } from "@/components/ui";
 import { QUICK_ACTIONS } from "@/constants/navigation";
 import { User } from "@/types/account";
+import { notFound } from "next/navigation";
 
 export const metadata = {
   title: "My Accounts SSO",
   description: "One login for all your apps",
 };
 
-export default async function HomePage() {
+interface PageProps {
+  params: Promise<{ reg_userid: string }>;
+}
+
+export default async function HomePage({ params }: PageProps) {
+  const { reg_userid } = await params;
   const cookieStore = await cookies();
   const sessionId = cookieStore.get("__sso_session")?.value;
-  //this registered user id will be set according to cookies set account
-  // it will be suggest user id like: 0 -> my first account, 1 -> second account and so on. It will be used to show user which account is active in case of multiple accounts are logged in same time.
-  const regUserId = cookieStore.get("__reg_userid")?.value; 
 
   let user: User | null = null;
+  let accountId: string | null = null;
 
   if (sessionId) {
     const session = await getSession(sessionId);
     if (session && session.user_id) {
       user = await getUserById(session.user_id);
+      
+      // Check if reg_userid is an index (0, 1, 2...) or an account ID
+      const isIndex = /^\d+$/.test(reg_userid);
+      
+      if (isIndex) {
+        // Resolve index to account ID
+        const indexNum = parseInt(reg_userid, 10);
+        const account = await getAccountByIndex(sessionId, indexNum);
+        
+        if (!account) {
+          notFound();
+        }
+        
+        accountId = account.id;
+      } else {
+        // Use provided account ID directly
+        accountId = reg_userid;
+      }
     }
   }
 

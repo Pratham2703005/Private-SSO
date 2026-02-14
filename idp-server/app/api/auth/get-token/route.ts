@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, getUserByEmail, getUserAccounts } from "@/lib/db";
+import { getSession, getUserById } from "@/lib/db";
 import { generateAccessToken, generateRefreshToken, generateIdToken } from "@/lib/jwt";
-import { hashToken } from "@/lib/utils";
+import { randomBytes } from "crypto";
 
 /**
  * GET /api/auth/get-token
@@ -38,8 +38,8 @@ export async function GET(request: NextRequest) {
 
     console.log("[/api/auth/get-token] ✅ Valid session found for user:", session.user_id);
 
-    // Get user info
-    const user = await getUserByEmail(session.user_id as any);
+    // Get user info by ID
+    const user = await getUserById(session.user_id);
     if (!user) {
       console.log("[/api/auth/get-token] ❌ User not found");
       return NextResponse.json(
@@ -48,10 +48,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Get active account ID from session (required for token generation)
+    const sessionWithAccounts = session as { active_account_id: string | null };
+    const accountId = sessionWithAccounts.active_account_id || user.id;
+
     // Generate new tokens
-    const accessToken = generateAccessToken(user.id);
-    const refreshToken = generateRefreshToken();
-    const idToken = generateIdToken(user.id, user.email);
+    const jti = randomBytes(16).toString("hex");
+    const accessToken = generateAccessToken(user.id, user.email, user.name, accountId);
+    const refreshToken = generateRefreshToken(user.id, accountId, "web", jti);
+    const idToken = generateIdToken(user.id, user.email, user.name, accountId);
 
     console.log("[/api/auth/get-token] ✅ Tokens generated");
 

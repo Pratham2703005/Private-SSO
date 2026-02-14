@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMasterCookie, generateState, hashToken } from "@/lib/utils";
+import { getMasterCookie, generateState } from "@/lib/utils";
 import {
   getSession,
   getUserById,
@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
     const codeChallenge = searchParams.get("code_challenge");
     const ttlSecondsParam = searchParams.get("ttl_seconds"); // For testing
     const ttlSeconds = ttlSecondsParam ? parseInt(ttlSecondsParam, 10) : 600; // Default 10 minutes
+    const prompt = searchParams.get("prompt"); // "none" for silent auth
 
     // Debug logging
     console.log('[Authorize] Request received');
@@ -189,6 +190,16 @@ export async function GET(request: NextRequest) {
 
         console.log('[Authorize] Authorization code generated');
 
+        // For prompt=none (silent auth), return JSON response
+        if (prompt === 'none') {
+          console.log('[Authorize] Silent auth response (prompt=none)');
+          const response = NextResponse.json(
+            { code: authCode, state },
+            { status: 200 }
+          );
+          return addCorsHeaders(response, request);
+        }
+
         // Redirect back to client with code + state (NO access_token in URL)
         const callbackUrl = new URL(redirectUri);
         callbackUrl.searchParams.set("code", authCode);
@@ -201,7 +212,19 @@ export async function GET(request: NextRequest) {
     }
 
     // No valid session
-    console.log('[Authorize] No valid session, redirecting to login');
+    console.log('[Authorize] No valid session');
+
+    // For prompt=none (silent auth fail), return 401 instead of redirect to login
+    if (prompt === 'none') {
+      console.log('[Authorize] Silent auth failed - no session (prompt=none)');
+      const errorResponse = NextResponse.json(
+        { success: false, error: 'No valid session', error_description: 'prompt=none but no active session' },
+        { status: 401 }
+      );
+      return addCorsHeaders(errorResponse, request);
+    }
+
+    console.log('[Authorize] Redirecting to login');
     // Redirect to login with return params (including code_challenge for PKCE)
     const loginUrl = new URL("/login", request.nextUrl.origin);
     loginUrl.searchParams.set("client_id", clientId);

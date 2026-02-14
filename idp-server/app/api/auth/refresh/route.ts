@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRefreshToken, generateAccessToken, generateRefreshToken } from "@/lib/jwt";
-import { getRefreshToken, revokeRefreshToken, storeRefreshToken, getUserById } from "@/lib/db";
+import { getRefreshTokenByHash, storeRefreshToken, getUserById } from "@/lib/db";
 import { hashToken } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if token is revoked
-    const tokenRecord = await getRefreshToken(payload.jti);
+    const tokenRecord = await getRefreshTokenByHash(hashToken(refreshToken));
     if (!tokenRecord || tokenRecord.is_revoked) {
       return NextResponse.json(
         { success: false, error: "Token has been revoked" },
@@ -41,9 +41,6 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-
-    // Revoke old token
-    await revokeRefreshToken(payload.jti);
 
     // Generate new tokens (token rotation)
     const newAccessToken = generateAccessToken(

@@ -1,6 +1,7 @@
 // Helper to seed OAuth clients into Supabase for testing
 // Run this once to set up client-a and client-b in the oauth_clients table
 
+import 'dotenv/config';
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -107,6 +108,38 @@ async function seedOAuthClients() {
       }
     } else {
       console.log("⏭️  client-inactive already exists");
+    }
+
+    // Check and insert client-c-dev
+    const { data: existingClientC } = await supabase
+      .from("oauth_clients")
+      .select("id")
+      .eq("client_id", "client-c-dev")
+      .single();
+
+    if (!existingClientC) {
+      const { error: errorC } = await supabase
+        .from("oauth_clients")
+        .insert([
+          {
+            client_id: "client-c-dev",
+            client_secret_hash: "hash_client_c_secret", // For testing only
+            client_name: "Client App C",
+            allowed_redirect_uris: [
+              "http://localhost:3003/api/auth/callback",
+              "http://localhost:3003/login",
+            ],
+            is_active: true,
+          },
+        ]);
+
+      if (errorC) {
+        console.error("❌ Error inserting client-c-dev:", errorC);
+      } else {
+        console.log("✅ Created client-c-dev");
+      }
+    } else {
+      console.log("⏭️  client-c-dev already exists");
     }
 
     console.log("🎉 OAuth clients seeding complete!");

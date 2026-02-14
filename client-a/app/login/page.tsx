@@ -11,40 +11,40 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const checkAndAutoLogin = async () => {
-      try {
-        // Check if already authenticated locally
-        const userRes = await fetch('/api/user');
-        if (userRes.ok) {
-          console.log('[LoginPage] ✅ Already authenticated, redirecting to dashboard');
-          router.push('/dashboard');
-          return;
-        }
+ useEffect(() => {
+  let cancelled = false;
 
-        // Attempt silent login (redirect to IDP authorize endpoint)
-        // If user has IDP session, they will be auto-approved
-        // If not, IDP will show login form
-        console.log('[LoginPage] Attempting silent login...');
-        window.location.href = '/api/auth/silent-login';
+  const checkAndAutoLogin = async () => {
+    try {
+      const userRes = await fetch("/api/user");
+      if (userRes.ok) {
+        console.log("[LoginPage] ✅ Already authenticated, redirecting to dashboard");
+        router.push("/dashboard");
         return;
-      } catch (err) {
-        console.log('[LoginPage] Error during check:', err);
-        setLoading(false);
       }
-    };
 
-    // Check for error in URL
-    const errorParam = searchParams.get('error');
-    if (errorParam) {
-      // Silent login failed, show login form instead
-      console.log('[LoginPage] Silent login failed, showing login form');
-      setLoading(false);
-      return;
+      console.log("[LoginPage] Attempting silent login...");
+      window.location.href = "/api/auth/silent-login";
+    } catch (err) {
+      console.log("[LoginPage] Error during check:", err);
+      if (!cancelled) Promise.resolve().then(() => setLoading(false));
     }
+  };
 
-    checkAndAutoLogin();
-  }, [router, searchParams]);
+  const errorParam = searchParams.get("error");
+  if (errorParam) {
+    console.log("[LoginPage] Silent login failed, showing login form");
+    Promise.resolve().then(() => setLoading(false));
+    return;
+  }
+
+  checkAndAutoLogin();
+
+  return () => {
+    cancelled = true;
+  };
+}, [router, searchParams]);
+
 
   const handleLogin = async () => {
     try {
