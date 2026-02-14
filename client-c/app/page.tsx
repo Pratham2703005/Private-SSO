@@ -1,29 +1,14 @@
 'use client';
 
+import { Toaster } from '@/components/Toaster';
 import { useEffect, useState, useRef } from 'react';
 
-interface SessionData {
+export interface SessionData {
   sessionId: string;
   userId: string;
   userName: string;
   email: string;
   issuedAt: number;
-}
-
-declare global {
-  interface Window {
-    RobotToastUtils?: {
-      showRobotToast: (options: {
-        message: string;
-        duration?: number;
-        position?: string;
-        robotSide?: string;
-        robotVariant?: string;
-        robotPath?: string;
-        typeSpeed?: number;
-      }) => Promise<void>;
-    };
-  }
 }
 
 export default function Home() {
@@ -46,30 +31,26 @@ export default function Home() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Show robot toast when user is logged in
+  // Show toast when loading completes
   useEffect(() => {
-    if (session && !toastShownRef.current) {
-      toastShownRef.current = true;
-      
-      // Use global RobotToastUtils if available
-      if (window.RobotToastUtils) {
-        window.RobotToastUtils.showRobotToast({
-          message: `Welcome back, ${session.userName}! 👋`,
-          duration: 6000,
-          position: 'top-left',
-          robotSide: 'left',
-          robotVariant: 'wave.svg',
-          robotPath: 'http://localhost:3000/robots',
-          typeSpeed: 25,
-        }).catch(error => {
-          console.error('Failed to show toast:', error);
-        });
-      }
-    } else if (!session) {
-      // Reset the toast ref when user logs out
-      toastShownRef.current = false;
+    if (loading) return;
+
+    if (!session) {
+      // User is not logged in
+      Toaster({
+        toastShownRef,
+        message: `You have not logged in`,
+        robotVariant: 'head-palm.svg',
+      });
+    } else {
+      // User is logged in
+      Toaster({
+        toastShownRef,
+        message: `Welcome back, ${session.userName}!`,
+        robotVariant: 'wave.svg',
+      });
     }
-  }, [session]);
+  }, [loading, session]);
 
   useEffect(() => {
     // Listen for postMessage from widget iframe
@@ -96,20 +77,25 @@ export default function Home() {
         alert('Sign in failed. Please try again.');
         toastShownRef.current = true;
       
-        // Use global RobotToastUtils if available
-        if (window.RobotToastUtils) {
-          window.RobotToastUtils.showRobotToast({
-            message: `Sign in failed`,
-            duration: 6000,
-            position: 'top-left',
-            robotSide: 'left',
-            robotVariant: 'error.svg',
-            robotPath: 'http://localhost:3000/robots',
-            typeSpeed: 25,
-          }).catch(error => {
-            console.error('Failed to show toast:', error);
-          });
-        }
+        // // Use global RobotToastUtils if available
+        // if (window.RobotToastUtils) {
+        //   window.RobotToastUtils.showRobotToast({
+        //     message: `Sign in failed`,
+        //     duration: 6000,
+        //     position: 'top-left',
+        //     robotSide: 'left',
+        //     robotVariant: 'error.svg',
+        //     robotPath: 'http://localhost:3000/robots',
+        //     typeSpeed: 25,
+        //   }).catch(error => {
+        //     console.error('Failed to show toast:', error);
+        //   });
+        // }
+        Toaster({
+          toastShownRef,
+          message: `Sign in failed`,
+          robotVariant: 'error.svg',
+        })
       }
     };
 
@@ -120,28 +106,6 @@ export default function Home() {
       window.removeEventListener('message', handleMessage);
     };
   }, []);
-
-  // Show robot toast when user is NOT logged in
-  useEffect(() => {
-    if (!loading && !session && !toastShownRef.current) {
-      toastShownRef.current = true;
-      
-      // Use global RobotToastUtils if available
-      if (window.RobotToastUtils) {
-        window.RobotToastUtils.showRobotToast({
-          message: `Please sign in to continue`,
-          duration: 6000,
-          position: 'top-left',
-          robotSide: 'left',
-          robotVariant: 'base.svg',
-          robotPath: 'http://localhost:3000/robots',
-          typeSpeed: 25,
-        }).catch(error => {
-          console.error('Failed to show toast:', error);
-        });
-      }
-    }
-  }, [loading, session]);
 
   if (loading) {
     return (

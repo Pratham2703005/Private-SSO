@@ -64,8 +64,7 @@ export async function GET() {
         const img = document.createElement('img');
         img.src = \`\${robotPath}/\${robotVariant}\`;
         img.alt = 'Robot';
-        img.style.width = '60px';
-        img.style.height = '80px';
+        // CSS handles sizing for consistent appearance across all variants
         img.onerror = () => {
           this.robot.innerHTML = this.getRobotSVG();
         };
@@ -312,6 +311,19 @@ export async function GET() {
         .robot-toast-robot {
           animation: robot-bounce 2s ease-in-out infinite;
           flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 65px;
+          height: 70px;
+        }
+
+        .robot-toast-robot img,
+        .robot-toast-robot svg {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          aspect-ratio: 1;
         }
 
         .robot-toast-robot-left {
@@ -458,9 +470,16 @@ export async function GET() {
             min-width: 200px;
           }
 
+          .robot-toast-robot {
+            width: 55px;
+            height: 60px;
+          }
+
+          .robot-toast-robot img,
           .robot-toast-robot svg {
-            width: 50px;
-            height: 66px;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
           }
         }
       \`;

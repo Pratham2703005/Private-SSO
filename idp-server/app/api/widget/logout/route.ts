@@ -24,7 +24,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getMasterCookie, clearMasterCookie } from '@/lib/utils';
-import { getSession, revokeAllUserTokens, revokeSession, getSessionLogons } from '@/lib/db';
+import { getSession, revokeAllUserTokens, revokeSession } from '@/lib/db';
+import { WIDGET_ALLOWED_CLIENTS } from '@/config/widget-clients';
 
 interface LogoutRequest {
   mode: 'app' | 'global';
@@ -38,10 +39,15 @@ interface LogoutResponse {
 
 // Map of client IDs to their logout endpoint paths
 // Built from configured clients
-const CLIENT_LOGOUT_ENDPOINTS: Record<string, string> = {
-  'client-a': 'http://localhost:3001/api/auth/logout-app',
-  'client-b': 'http://localhost:3002/api/auth/logout-app',
-};
+// const CLIENT_LOGOUT_ENDPOINTS: Record<string, string> = {
+//   'client-a': 'http://localhost:3001/api/auth/logout-app',
+//   'client-b': 'http://localhost:3002/api/auth/logout-app',
+// };
+export const CLIENT_LOGOUT_ENDPOINTS: Record<string, string> =
+  WIDGET_ALLOWED_CLIENTS.reduce((acc, client) => {
+    acc[client.clientId] = `${client.origin}/api/auth/logout-app`;
+    return acc;
+  }, {} as Record<string, string>);
 
 export async function POST(request: NextRequest) {
   try {
