@@ -1,22 +1,20 @@
 /**
  * GET /api/widget/accounts
  *
- * Returns all accounts in current IDP session with indices
- * Called by iframe-based account switcher widget
- *
- * Response includes:
- * - accounts: array of accounts with index, id, email, name, avatar, isPrimary
- * - activeIndex: currently active account index
+ * Returns accounts for widget display
+ * Supports two flows:
+ * 1. With active session: returns all accounts in session with active account index
+ * 2. Without active session: returns idp_jar remembered accounts (Google-style "Signed out" state)
  *
  * Security:
- * - Validates __sso_session cookie (iframe on IDP domain reads directly)
+ * - Returns minimal info only (id, email, name, avatar_url, index)
  * - No tokens returned
- * - Only basic account info (email, name, avatar)
+ * - IDs from idp_jar are unprivileged account references
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getMasterCookie } from '@/lib/utils';
-import { getSession } from '@/lib/db';
+import { getSession, supabase } from '@/lib/db';
 import { getAllAccountsWithIndices, getIndexByAccountId } from '@/lib/account-indexing';
 
 interface AccountItem {
@@ -24,13 +22,8 @@ interface AccountItem {
   id: string;
   email: string;
   name: string;
-  avatar: string;
+  avatar_url: string | null;
   isPrimary: boolean;
-}
-
-interface WidgetAccountsResponse {
-  accounts: AccountItem[];
-  activeIndex: number;
 }
 
 export async function GET(request: NextRequest) {
@@ -38,80 +31,97 @@ export async function GET(request: NextRequest) {
     // Get IDP session from cookie
     const sessionId = getMasterCookie(request);
 
-    if (!sessionId) {
-      console.log('[Widget] /accounts: No IDP session found');
-      return NextResponse.json(
-        { success: false, error: 'Not logged in' },
-        { status: 401 }
-      );
+    // FLOW 1: Active session exists - return all session accounts with active index
+    if (sessionId) {
+      const session = await getSession(sessionId);
+
+      if (session && session.user_id && session.active_account_id) {
+        console.log('[Widget] /accounts: Active session found, fetching accounts');
+
+        // Get all accounts in session with indices
+        const accountsWithIndices = await getAllAccountsWithIndices(sessionId);
+
+        if (accountsWithIndices.length > 0) {
+          // Find active account index
+          const activeIndex = await getIndexByAccountId(sessionId, session.active_account_id);
+
+          // Format response
+          const accounts = accountsWithIndices.map((acc) => ({
+            index: acc.index,
+            id: acc.id,
+            email: acc.email,
+            name: acc.name,
+            avatar_url: acc.avatar_url,
+            isPrimary: acc.isPrimary,
+          }));
+
+          console.log(
+            `[Widget] /accounts: Returning ${accounts.length} active accounts, active index: ${activeIndex}`
+          );
+
+          return NextResponse.json({ accounts, activeIndex }, { status: 200 });
+        }
+      }
     }
 
-    // Validate session exists and get user
-    const session = await getSession(sessionId);
+    // FLOW 2: No active session - try to return remembered accounts from idp_jar
+    console.log('[Widget] /accounts: No active session, checking idp_jar cookie');
+    const jarCookie = request.cookies.get('idp_jar')?.value;
 
-    if (!session || !session.user_id) {
-      console.log('[Widget] /accounts: Session invalid or expired');
-      return NextResponse.json(
-        { success: false, error: 'Session invalid or expired' },
-        { status: 401 }
-      );
+    if (!jarCookie) {
+      console.log('[Widget] /accounts: No idp_jar cookie found');
+      return NextResponse.json({ accounts: [], activeIndex: -1 }, { status: 200 });
     }
 
-    if (!session.active_account_id) {
-      console.log('[Widget] /accounts: No active account in session');
-      return NextResponse.json(
-        { success: false, error: 'No active account' },
-        { status: 400 }
-      );
+    // Parse account IDs from jar cookie
+    const accountIds = jarCookie.split(',').filter(Boolean);
+
+    if (accountIds.length === 0) {
+      console.log('[Widget] /accounts: idp_jar cookie is empty');
+      return NextResponse.json({ accounts: [], activeIndex: -1 }, { status: 200 });
     }
 
-    // Get all accounts in session with indices
-    const accountsWithIndices = await getAllAccountsWithIndices(sessionId);
+    console.log('[Widget] /accounts: Fetching remembered accounts for IDs:', accountIds);
 
-    if (accountsWithIndices.length === 0) {
-      console.log('[Widget] /accounts: No accounts in session');
-      return NextResponse.json(
-        { success: false, error: 'No accounts found' },
-        { status: 400 }
-      );
+    // Fetch account details from database
+    const { data: accountsData, error } = await supabase
+      .from('user_accounts')
+      .select('id, email, name')
+      .in('id', accountIds);
+
+    if (error) {
+      console.error('[Widget] /accounts: Failed to fetch from DB:', error);
+      return NextResponse.json({ accounts: [], activeIndex: -1 }, { status: 200 });
     }
 
-    // Find active account index
-    const activeIndex = await getIndexByAccountId(sessionId, session.active_account_id);
-
-    if (activeIndex === null) {
-      console.log('[Widget] /accounts: Active account not found in indices');
-      return NextResponse.json(
-        { success: false, error: 'Active account not found' },
-        { status: 400 }
-      );
+    if (!accountsData || accountsData.length === 0) {
+      console.log('[Widget] /accounts: No accounts found in DB');
+      return NextResponse.json({ accounts: [], activeIndex: -1 }, { status: 200 });
     }
 
-    // Format response
-    const accounts: AccountItem[] = accountsWithIndices.map((acc) => ({
-      index: acc.index,
-      id: acc.id,
-      email: acc.email,
-      name: acc.name,
-      avatar: acc.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(acc.name)}`,
-      isPrimary: acc.isPrimary,
-    }));
+    // Format accounts with index (order matches jar)
+    const accounts = accountIds
+      .map((id, index) => {
+        const account = accountsData.find((acc) => acc.id === id);
+        if (!account) return null;
+        return {
+          index,
+          id: account.id,
+          email: account.email,
+          name: account.name,
+          isPrimary: false,
+        };
+      })
+      .filter(Boolean);
 
-    const response: WidgetAccountsResponse = {
-      accounts,
-      activeIndex,
-    };
+    console.log('[Widget] /accounts: Returning', accounts.length, 'remembered accounts (signed out state)');
 
-    console.log(
-      `[Widget] /accounts: Returning ${accounts.length} accounts, active index: ${activeIndex}`
-    );
-
-    return NextResponse.json(response, { status: 200 });
+    return NextResponse.json({ accounts, activeIndex: -1 }, { status: 200 });
   } catch (error) {
     console.error('[Widget] /accounts error:', error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
+      { accounts: [], activeIndex: -1 },
+      { status: 200 }
     );
   }
 }

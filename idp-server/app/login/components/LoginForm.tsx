@@ -7,8 +7,12 @@ import Link from "next/link";
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // Get login_hint (email) from URL if provided
+  const loginHint = searchParams.get("login_hint") || "";
+  
   const [formData, setFormData] = useState({
-    email: "",
+    email: loginHint,
     password: "",
   });
   const [error, setError] = useState("");
@@ -25,6 +29,7 @@ export default function LoginForm() {
       "state",
       "code_challenge",
       "code_challenge_method",
+      "login_hint",
     ];
 
     oauthKeys.forEach((key) => {

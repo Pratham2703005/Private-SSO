@@ -14,24 +14,26 @@ interface WidgetClientState {
 interface WidgetClientProps {
   initialAccounts: IndexedAccount[];
   initialError?: string;
+  initialIsSignedOut?: boolean;
 }
 
 function initializeWidgetState(
   initialAccounts: IndexedAccount[],
-  initialError?: string
+  initialError?: string,
+  initialIsSignedOut?: boolean
 ): WidgetClientState {
   // Simple initialization: always use server data
   return {
     accounts: initialAccounts,
-    isSignedOut: false,
+    isSignedOut: initialIsSignedOut ?? false,
     error: initialError,
   };
 }
 
-export default function WidgetClient({ initialAccounts, initialError }: WidgetClientProps) {
+export default function WidgetClient({ initialAccounts, initialError, initialIsSignedOut }: WidgetClientProps) {
   const theme = getThemeClasses();
   const [state, setState] = useState<WidgetClientState>(() =>
-    initializeWidgetState(initialAccounts, initialError)
+    initializeWidgetState(initialAccounts, initialError, initialIsSignedOut)
   );
 
   // Handle global logout
@@ -100,13 +102,13 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
   };
 
   // Handle clicking a signed-out account
-  const handleSignedOutAccountClick = (): void => {
+  const handleSignedOutAccountClick = (account?: IndexedAccount): void => {
     // Send message to parent frame (client app) to initiate OAuth flow
     // Parent will call /api/auth/start and redirect
     if (typeof window !== 'undefined' && window.parent) {
-      console.log('[WidgetClient] Sending startAuth message to parent');
+      console.log('[WidgetClient] Sending startAuth message to parent', account?.email);
       window.parent.postMessage(
-        { type: 'startAuth' },
+        { type: 'startAuth', email: account?.email },
         '*'
       );
     }
@@ -194,7 +196,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
         {/* Button */}
         {state.isSignedOut ? (
           <button
-            onClick={() => handleSignedOutAccountClick()}
+            onClick={() => handleSignedOutAccountClick(activeAccount)}
             className={`px-6 py-2.5 ${theme.colors.primaryButtonBg} ${theme.colors.primaryButtonBgHover} ${theme.colors.primaryButtonText} text-sm font-medium ${theme.styles.buttonBorderRadius} transition-colors duration-200`}
             type="button"
           >
@@ -275,7 +277,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
             {otherAccounts.map((account) => (
               <button
                 key={account.id}
-                onClick={() => handleSignedOutAccountClick()}
+                onClick={() => handleSignedOutAccountClick(account)}
                 className={`w-full px-6 py-3.5 flex items-center gap-3 ${theme.colors.hoverBackground} transition-colors duration-150 text-left border-t ${theme.colors.dividerBorder}`}
                 type="button"
               >

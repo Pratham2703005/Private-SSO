@@ -243,6 +243,12 @@ export async function GET(request: NextRequest) {
       loginUrl.searchParams.set("code_challenge_method", codeChallengeMethod);
     }
 
+    // Pass login_hint (email) if provided
+    const loginHint = searchParams.get("login_hint");
+    if (loginHint) {
+      loginUrl.searchParams.set("login_hint", loginHint);
+    }
+
     return NextResponse.redirect(loginUrl);
   } catch (error) {
     console.error("Authorize error:", error);

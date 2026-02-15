@@ -51,11 +51,48 @@ export default function Home() {
       });
   };
 
-  // Initial fetch and event-based session validation
+  // Initial fetch on component mount
   useEffect(() => {
-    // Initial page load
-    fetchSession();
+    let mounted = true;
 
+    fetch('/api/me')
+      .then(res => {
+        if (res.ok) return res.json();
+        throw new Error('Not authenticated');
+      })
+      .then(data => {
+        if (!mounted) return;
+        console.log('[Home] Session data from /api/me:', JSON.stringify(data, null, 2));
+        if (data.authenticated && data.user) {
+          setSession({
+            sessionId: data.activeAccountId || 'unknown',
+            userId: data.user.id,
+            userName: data.user.name,
+            email: data.user.email,
+            issuedAt: (data.iat || 0) * 1000,
+          });
+        } else {
+          setSession(null);
+        }
+      })
+      .catch(() => {
+        if (!mounted) return;
+        console.log('[Home] Session invalid or expired, clearing');
+        setSession(null);
+      })
+      .finally(() => {
+        if (mounted) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Event-based session validation
+  useEffect(() => {
     // Re-fetch on: visibility change, focus, and widget close
     const handleVisibilityChange = () => {
       if (!document.hidden) {
@@ -78,6 +115,27 @@ export default function Home() {
     };
   }, []);
 
+  // Preload widget iframe for instant loading on click
+  useEffect(() => {
+    console.log('[Home] Preloading widget iframe...');
+    
+    // Create hidden iframe to preload widget
+    const iframe = document.createElement('iframe');
+    iframe.src = 'http://localhost:3000/widget/account-switcher';
+    iframe.style.display = 'none';
+    iframe.title = 'Widget (preloaded)';
+    document.body.appendChild(iframe);
+
+    console.log('[Home] Widget iframe preloaded in background');
+
+    // Cleanup on unmount
+    return () => {
+      if (iframe.parentNode) {
+        iframe.parentNode.removeChild(iframe);
+      }
+    };
+  }, []);
+
   // Show toast when loading completes
   useEffect(() => {
     if (loading) return;
@@ -87,8 +145,7 @@ export default function Home() {
       Toaster({
         toastShownRef,
         message: `You have not logged in`,
-        robotVariant: 'head-palm.svg',
-        className: 'bg-yellow-700 border-gray-50 text-white',
+        robotVariant: 'think.svg'
       });
     } else {
       // User is logged in
@@ -138,11 +195,16 @@ export default function Home() {
         return;
       }
 
-      console.log('[Home] Received startAuth from widget');
+      console.log('[Home] Received startAuth from widget', event.data.email ? `for ${event.data.email}` : '');
 
       try {
         // Call our own /api/auth/start to get OAuth authorize URL with PKCE
-        const response = await fetch('/api/auth/start');
+        const url = new URL('/api/auth/start', window.location.origin);
+        if (event.data.email) {
+          url.searchParams.set('email', event.data.email);
+        }
+        
+        const response = await fetch(url.toString());
         const data = await response.json();
 
         if (data.url) {

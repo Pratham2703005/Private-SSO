@@ -8,7 +8,10 @@ const REDIRECT_URI = process.env.NEXT_PUBLIC_REDIRECT_URI || "http://localhost:3
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("[AuthStart] 🔐 Generating PKCE and authorization URL...");
+    const { searchParams } = new URL(request.url);
+    const email = searchParams.get('email');
+    
+    console.log("[AuthStart] 🔐 Generating PKCE and authorization URL...", email ? `for ${email}` : '');
 
     // Generate state for CSRF protection
     const state = Array.from(crypto.getRandomValues(new Uint8Array(32)))
@@ -33,6 +36,11 @@ export async function GET(request: NextRequest) {
     authorizeUrl.searchParams.set("state", state);
     authorizeUrl.searchParams.set("code_challenge", challenge);
     authorizeUrl.searchParams.set("code_challenge_method", "S256");
+    
+    // Pass email as login_hint if provided
+    if (email) {
+      authorizeUrl.searchParams.set("login_hint", email);
+    }
 
     console.log("[AuthStart] 🔗 Authorize URL built");
 
