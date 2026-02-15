@@ -9,6 +9,7 @@ declare global {
         robotVariant?: string;
         robotPath?: string;
         typeSpeed?: number;
+        className?: string;
       }) => Promise<void>;
     };
   }
@@ -33,6 +34,7 @@ export const Toaster = ({
     robotSide='left',
     robotVariant='base2.svg',
     typeSpeed=25,
+    className='',
 }: RobotToastOptions) => {
   // SSR safety check - window only exists on client side
   if (typeof window === 'undefined') {
@@ -44,6 +46,12 @@ export const Toaster = ({
       
       // Use global RobotToastUtils if available
       if (window.RobotToastUtils) {
+        // Note: className works with custom CSS classes defined in your stylesheets,
+        // but NOT with Tailwind utility classes since the HTML is injected from a different build.
+        // For styling, either:
+        // 1. Define custom CSS classes in your app's global CSS
+        // 2. Use window.RobotToastUtils directly with inline style manipulation
+        // Example: className: 'custom-toast-style'
         window.RobotToastUtils.showRobotToast({
           message,
           duration,
@@ -52,6 +60,7 @@ export const Toaster = ({
           robotVariant,
           robotPath: `${process.env.NEXT_PUBLIC_IDP_SERVER}/robots`,
           typeSpeed,
+          className,
         }).catch(error => {
           console.error('Failed to show toast:', error);
         });

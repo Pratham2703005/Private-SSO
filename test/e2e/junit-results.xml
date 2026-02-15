@@ -1,0 +1,390 @@
+<testsuites id="" name="" tests="10" failures="8" skipped="2" errors="0" time="100.835663">
+<testsuite name="client\global-logout.spec.ts" timestamp="2026-02-15T15:22:15.454Z" hostname="chromium" tests="5" failures="5" skipped="0" time="174.614" errors="0">
+<testcase name="Client: Global Logout › Global logout destroys __sso_session cookie" classname="client\global-logout.spec.ts" time="35.656">
+<failure message="global-logout.spec.ts:24:7 Global logout destroys __sso_session cookie" type="FAILURE">
+<![CDATA[  [chromium] › client\global-logout.spec.ts:24:7 › Client: Global Logout › Global logout destroys __sso_session cookie 
+
+    Test timeout of 30000ms exceeded while running "beforeEach" hook.
+
+      12 |   const testUser = users[0]; // Alice
+      13 |
+    > 14 |   test.beforeEach(async ({ page }) => {
+         |        ^
+      15 |     // Login and navigate to client
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:14:8
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+    > 18 |     await page.waitForFunction(() => {
+         |                ^
+      19 |       const cookies = document.cookie;
+      20 |       return cookies.includes("app_session_c");
+      21 |     });
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:18:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-07287-destroys-sso-session-cookie-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-07287-destroys-sso-session-cookie-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\client-global-logout-Clien-07287-destroys-sso-session-cookie-chromium\error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-07287-destroys-sso-session-cookie-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-07287-destroys-sso-session-cookie-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-07287-destroys-sso-session-cookie-chromium\error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Client: Global Logout › User redirected to login after global logout" classname="client\global-logout.spec.ts" time="35.215">
+<failure message="global-logout.spec.ts:39:7 User redirected to login after global logout" type="FAILURE">
+<![CDATA[  [chromium] › client\global-logout.spec.ts:39:7 › Client: Global Logout › User redirected to login after global logout 
+
+    Test timeout of 30000ms exceeded while running "beforeEach" hook.
+
+      12 |   const testUser = users[0]; // Alice
+      13 |
+    > 14 |   test.beforeEach(async ({ page }) => {
+         |        ^
+      15 |     // Login and navigate to client
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:14:8
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+    > 18 |     await page.waitForFunction(() => {
+         |                ^
+      19 |       const cookies = document.cookie;
+      20 |       return cookies.includes("app_session_c");
+      21 |     });
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:18:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-3fcbb-o-login-after-global-logout-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-3fcbb-o-login-after-global-logout-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\client-global-logout-Clien-3fcbb-o-login-after-global-logout-chromium\error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-3fcbb-o-login-after-global-logout-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-3fcbb-o-login-after-global-logout-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-3fcbb-o-login-after-global-logout-chromium\error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Client: Global Logout › All clients require re-login after global logout" classname="client\global-logout.spec.ts" time="35.667">
+<failure message="global-logout.spec.ts:50:7 All clients require re-login after global logout" type="FAILURE">
+<![CDATA[  [chromium] › client\global-logout.spec.ts:50:7 › Client: Global Logout › All clients require re-login after global logout 
+
+    Test timeout of 30000ms exceeded while running "beforeEach" hook.
+
+      12 |   const testUser = users[0]; // Alice
+      13 |
+    > 14 |   test.beforeEach(async ({ page }) => {
+         |        ^
+      15 |     // Login and navigate to client
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:14:8
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+    > 18 |     await page.waitForFunction(() => {
+         |                ^
+      19 |       const cookies = document.cookie;
+      20 |       return cookies.includes("app_session_c");
+      21 |     });
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:18:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-4bcd2-e-login-after-global-logout-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-4bcd2-e-login-after-global-logout-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\client-global-logout-Clien-4bcd2-e-login-after-global-logout-chromium\error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-4bcd2-e-login-after-global-logout-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-4bcd2-e-login-after-global-logout-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-4bcd2-e-login-after-global-logout-chromium\error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Client: Global Logout › Cannot use stale tokens after global logout" classname="client\global-logout.spec.ts" time="35.621">
+<failure message="global-logout.spec.ts:72:7 Cannot use stale tokens after global logout" type="FAILURE">
+<![CDATA[  [chromium] › client\global-logout.spec.ts:72:7 › Client: Global Logout › Cannot use stale tokens after global logout 
+
+    Test timeout of 30000ms exceeded while running "beforeEach" hook.
+
+      12 |   const testUser = users[0]; // Alice
+      13 |
+    > 14 |   test.beforeEach(async ({ page }) => {
+         |        ^
+      15 |     // Login and navigate to client
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:14:8
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+    > 18 |     await page.waitForFunction(() => {
+         |                ^
+      19 |       const cookies = document.cookie;
+      20 |       return cookies.includes("app_session_c");
+      21 |     });
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:18:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-e9010--tokens-after-global-logout-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-e9010--tokens-after-global-logout-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\client-global-logout-Clien-e9010--tokens-after-global-logout-chromium\error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-e9010--tokens-after-global-logout-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-e9010--tokens-after-global-logout-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-e9010--tokens-after-global-logout-chromium\error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Client: Global Logout › After global logout, login creates fresh session" classname="client\global-logout.spec.ts" time="32.455">
+<failure message="global-logout.spec.ts:94:7 After global logout, login creates fresh session" type="FAILURE">
+<![CDATA[  [chromium] › client\global-logout.spec.ts:94:7 › Client: Global Logout › After global logout, login creates fresh session 
+
+    Test timeout of 30000ms exceeded while running "beforeEach" hook.
+
+      12 |   const testUser = users[0]; // Alice
+      13 |
+    > 14 |   test.beforeEach(async ({ page }) => {
+         |        ^
+      15 |     // Login and navigate to client
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:14:8
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+    > 18 |     await page.waitForFunction(() => {
+         |                ^
+      19 |       const cookies = document.cookie;
+      20 |       return cookies.includes("app_session_c");
+      21 |     });
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:18:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-0ae64-login-creates-fresh-session-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-0ae64-login-creates-fresh-session-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\client-global-logout-Clien-0ae64-login-creates-fresh-session-chromium\error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-0ae64-login-creates-fresh-session-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-0ae64-login-creates-fresh-session-chromium\video.webm]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-0ae64-login-creates-fresh-session-chromium\error-context.md]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+<testsuite name="client\global-logout.spec.ts" timestamp="2026-02-15T15:22:15.454Z" hostname="firefox" tests="5" failures="3" skipped="2" time="123.098" errors="0">
+<testcase name="Client: Global Logout › Global logout destroys __sso_session cookie" classname="client\global-logout.spec.ts" time="30.254">
+<failure message="global-logout.spec.ts:24:7 Global logout destroys __sso_session cookie" type="FAILURE">
+<![CDATA[  [firefox] › client\global-logout.spec.ts:24:7 › Client: Global Logout › Global logout destroys __sso_session cookie 
+
+    Test timeout of 30000ms exceeded while running "beforeEach" hook.
+
+      12 |   const testUser = users[0]; // Alice
+      13 |
+    > 14 |   test.beforeEach(async ({ page }) => {
+         |        ^
+      15 |     // Login and navigate to client
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:14:8
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+    > 18 |     await page.waitForFunction(() => {
+         |                ^
+      19 |       const cookies = document.cookie;
+      20 |       return cookies.includes("app_session_c");
+      21 |     });
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:18:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-07287-destroys-sso-session-cookie-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-07287-destroys-sso-session-cookie-firefox\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\client-global-logout-Clien-07287-destroys-sso-session-cookie-firefox\error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-07287-destroys-sso-session-cookie-firefox\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-07287-destroys-sso-session-cookie-firefox\video.webm]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-07287-destroys-sso-session-cookie-firefox\error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Client: Global Logout › User redirected to login after global logout" classname="client\global-logout.spec.ts" time="30.319">
+<failure message="global-logout.spec.ts:39:7 User redirected to login after global logout" type="FAILURE">
+<![CDATA[  [firefox] › client\global-logout.spec.ts:39:7 › Client: Global Logout › User redirected to login after global logout 
+
+    Test timeout of 30000ms exceeded while running "beforeEach" hook.
+
+      12 |   const testUser = users[0]; // Alice
+      13 |
+    > 14 |   test.beforeEach(async ({ page }) => {
+         |        ^
+      15 |     // Login and navigate to client
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:14:8
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+    > 18 |     await page.waitForFunction(() => {
+         |                ^
+      19 |       const cookies = document.cookie;
+      20 |       return cookies.includes("app_session_c");
+      21 |     });
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:18:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-3fcbb-o-login-after-global-logout-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-3fcbb-o-login-after-global-logout-firefox\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\client-global-logout-Clien-3fcbb-o-login-after-global-logout-firefox\error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-3fcbb-o-login-after-global-logout-firefox\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-3fcbb-o-login-after-global-logout-firefox\video.webm]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-3fcbb-o-login-after-global-logout-firefox\error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Client: Global Logout › All clients require re-login after global logout" classname="client\global-logout.spec.ts" time="30.338">
+<failure message="global-logout.spec.ts:50:7 All clients require re-login after global logout" type="FAILURE">
+<![CDATA[  [firefox] › client\global-logout.spec.ts:50:7 › Client: Global Logout › All clients require re-login after global logout 
+
+    Test timeout of 30000ms exceeded while running "beforeEach" hook.
+
+      12 |   const testUser = users[0]; // Alice
+      13 |
+    > 14 |   test.beforeEach(async ({ page }) => {
+         |        ^
+      15 |     // Login and navigate to client
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:14:8
+
+    Error: page.waitForFunction: Test timeout of 30000ms exceeded.
+
+      16 |     await loginViaUI(page, testUser.email, testUser.password);
+      17 |     await page.goto("http://localhost:3003");
+    > 18 |     await page.waitForFunction(() => {
+         |                ^
+      19 |       const cookies = document.cookie;
+      20 |       return cookies.includes("app_session_c");
+      21 |     });
+        at D:\vs work\experiements\myown-sso\test\e2e\specs\client\global-logout.spec.ts:18:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-4bcd2-e-login-after-global-logout-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ..\..\test-results\client-global-logout-Clien-4bcd2-e-login-after-global-logout-firefox\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\..\test-results\client-global-logout-Clien-4bcd2-e-login-after-global-logout-firefox\error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-4bcd2-e-login-after-global-logout-firefox\test-failed-1.png]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-4bcd2-e-login-after-global-logout-firefox\video.webm]]
+
+[[ATTACHMENT|..\test-results\client-global-logout-Clien-4bcd2-e-login-after-global-logout-firefox\error-context.md]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Client: Global Logout › Cannot use stale tokens after global logout" classname="client\global-logout.spec.ts" time="16.485">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Client: Global Logout › After global logout, login creates fresh session" classname="client\global-logout.spec.ts" time="15.702">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+</testsuites>

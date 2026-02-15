@@ -27,6 +27,8 @@ export async function GET() {
       this.isDragging = false;
       this.dragOffset = { x: 0, y: 0 };
       this.currentTimeout = null;
+      this.dragStartTime = null;
+      this.messageDuration = null;
       this.injectStyles();
     }
 
@@ -113,6 +115,7 @@ export async function GET() {
     }
 
     typeMessage(element, message, typeSpeed, duration) {
+      this.messageDuration = duration; // Store duration for drag pause/resume
       let index = 0;
       const type = () => {
         if (index < message.length) {
@@ -133,9 +136,17 @@ export async function GET() {
         if (e.target.closest('.robot-toast-close')) return;
         
         this.isDragging = true;
+        this.dragStartTime = Date.now();
+        
+        // Pause the auto-close timer while dragging
+        if (this.currentTimeout) {
+          clearTimeout(this.currentTimeout);
+          this.currentTimeout = null;
+        }
+        
         const rect = this.messageBox.getBoundingClientRect();
         this.dragOffset = {
-          x: e.clientX - rect.left,
+          x: 0,
           y: e.clientY - rect.top,
         };
         this.messageBox.style.cursor = 'grabbing';
@@ -146,25 +157,37 @@ export async function GET() {
 
         e.preventDefault();
 
-        let newX = e.clientX - this.dragOffset.x;
+        // Only allow vertical (Y-axis) movement, ignore horizontal movement
         let newY = e.clientY - this.dragOffset.y;
 
         const rect = this.messageBox.getBoundingClientRect();
-        const maxX = window.innerWidth - rect.width;
         const maxY = window.innerHeight - rect.height;
 
-        newX = Math.max(0, Math.min(newX, maxX));
+        // Clamp Y to viewport bounds
         newY = Math.max(0, Math.min(newY, maxY));
 
-        this.container.className = 'robot-toast-container robot-toast-dragging';
-        this.container.style.left = \`\${newX}px\`;
+        this.container.classList.add('robot-toast-dragging');
         this.container.style.top = \`\${newY}px\`;
       };
 
       const onMouseUp = () => {
-        if (this.isDragging && this.messageBox) {
+        if (this.isDragging && this.messageBox && this.container) {
           this.isDragging = false;
           this.messageBox.style.cursor = 'move';
+          this.container.classList.remove('robot-toast-dragging');
+          
+          // Resume the auto-close timer with remaining duration
+          if (this.messageDuration && this.messageDuration > 0 && this.dragStartTime) {
+            const elapsedTime = Date.now() - this.dragStartTime;
+            const remainingDuration = Math.max(0, this.messageDuration - elapsedTime);
+            
+            if (remainingDuration > 0) {
+              this.currentTimeout = setTimeout(() => this.close(), remainingDuration);
+            } else {
+              // If no time remains, close immediately
+              this.close();
+            }
+          }
         }
       };
 
@@ -177,10 +200,18 @@ export async function GET() {
         if (e.target.closest('.robot-toast-close')) return;
         
         this.isDragging = true;
+        this.dragStartTime = Date.now();
+        
+        // Pause the auto-close timer while dragging
+        if (this.currentTimeout) {
+          clearTimeout(this.currentTimeout);
+          this.currentTimeout = null;
+        }
+        
         const touch = e.touches[0];
         const rect = this.messageBox.getBoundingClientRect();
         this.dragOffset = {
-          x: touch.clientX - rect.left,
+          x: 0,
           y: touch.clientY - rect.top,
         };
       };
@@ -191,23 +222,38 @@ export async function GET() {
         e.preventDefault();
         const touch = e.touches[0];
 
-        let newX = touch.clientX - this.dragOffset.x;
+        // Only allow vertical (Y-axis) movement, ignore horizontal movement
         let newY = touch.clientY - this.dragOffset.y;
 
         const rect = this.messageBox.getBoundingClientRect();
-        const maxX = window.innerWidth - rect.width;
         const maxY = window.innerHeight - rect.height;
 
-        newX = Math.max(0, Math.min(newX, maxX));
+        // Clamp Y to viewport bounds
         newY = Math.max(0, Math.min(newY, maxY));
 
-        this.container.className = 'robot-toast-container robot-toast-dragging';
-        this.container.style.left = \`\${newX}px\`;
+        this.container.classList.add('robot-toast-dragging');
         this.container.style.top = \`\${newY}px\`;
       };
 
       const onTouchEnd = () => {
-        this.isDragging = false;
+        if (this.isDragging && this.messageBox && this.container) {
+          this.isDragging = false;
+          this.messageBox.style.cursor = 'move';
+          this.container.classList.remove('robot-toast-dragging');
+          
+          // Resume the auto-close timer with remaining duration
+          if (this.messageDuration && this.messageDuration > 0 && this.dragStartTime) {
+            const elapsedTime = Date.now() - this.dragStartTime;
+            const remainingDuration = Math.max(0, this.messageDuration - elapsedTime);
+            
+            if (remainingDuration > 0) {
+              this.currentTimeout = setTimeout(() => this.close(), remainingDuration);
+            } else {
+              // If no time remains, close immediately
+              this.close();
+            }
+          }
+        }
       };
 
       this.messageBox.addEventListener('touchstart', onTouchStart, { passive: false });
@@ -282,10 +328,9 @@ export async function GET() {
 
         .robot-toast-container.robot-toast-dragging {
           position: fixed !important;
-          top: auto !important;
-          bottom: auto !important;
           left: auto !important;
           right: auto !important;
+          bottom: auto !important;
         }
 
         .robot-toast-top-right {

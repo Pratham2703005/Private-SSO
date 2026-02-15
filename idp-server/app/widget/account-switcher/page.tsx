@@ -1,21 +1,18 @@
 /**
  * Account Switcher Page
- * Server-rendered iframe content for the account switcher widget
- * Lives on IDP domain, embedded in client apps
+ * Server-rendered page that fetches account data, then renders client-side widget
+ * Lives on IDP domain, embedded in client apps as iframe
  */
 
 import { cookies } from 'next/headers';
 import { getAllAccountsWithIndices } from '@/lib/account-indexing';
-import ActiveAccountCard from '@/components/widget/active-account-card';
-import AccountsList from '@/components/widget/accounts-list';
-import ActionsSection from '@/components/widget/actions-section';
 import IframeMessenger from '@/components/widget/iframe-messenger';
 import SignInButton from '@/components/widget/sign-in-button';
+import WidgetClient from '@/components/widget/widget-client';
 import { getThemeClasses } from '@/lib/theme-config';
 
 export default async function AccountSwitcherPage() {
   const theme = getThemeClasses();
-  const idpOrigin = process.env.NEXT_PUBLIC_IDP_URL || 'http://localhost:3000';
   
   try {
     const cookieStore = await cookies();
@@ -60,20 +57,10 @@ export default async function AccountSwitcherPage() {
       );
     }
 
-    // Active account is the first in the list (index 0)
-    const activeAccount = accounts[0];
-    const otherAccounts = accounts.slice(1);
-
     return (
       <>
         <IframeMessenger />
-        <div className={`w-full max-w-md ${theme.colors.cardBackground} ${theme.styles.cardBorderRadius} ${theme.styles.cardShadow} overflow-hidden`}>
-          <ActiveAccountCard account={activeAccount} />
-          {otherAccounts.length > 0 && (
-            <AccountsList accounts={otherAccounts} activeIndex={activeAccount.index} />
-          )}
-          <ActionsSection />
-        </div>
+        <WidgetClient initialAccounts={accounts} />
       </>
     );
   } catch (error) {

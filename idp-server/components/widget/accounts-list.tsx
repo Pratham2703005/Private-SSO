@@ -98,7 +98,7 @@ export default function AccountsList({ accounts, activeIndex }: AccountsListProp
                     className={`${theme.styles.avatarBorderRadius} object-cover`}
                   />
                 ) : (
-                  <div className={`w-10 h-10 ${theme.styles.avatarBorderRadius} bg-gradient-to-br ${theme.colors.avatarGradientFrom} ${theme.colors.avatarGradientTo} flex items-center justify-center text-white text-sm font-semibold`}>
+                  <div className={`w-10 h-10 ${theme.styles.avatarBorderRadius} bg-linear-to-br ${theme.colors.avatarGradientFrom} ${theme.colors.avatarGradientTo} flex items-center justify-center text-white text-sm font-semibold`}>
                     {account.name.charAt(0).toUpperCase()}
                   </div>
                 )}

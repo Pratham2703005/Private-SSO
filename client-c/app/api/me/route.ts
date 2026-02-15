@@ -1,84 +1,106 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAccessToken } from "@/lib/session-store";
 
 const IDP_SERVER = process.env.NEXT_PUBLIC_IDP_SERVER || "http://localhost:3000";
 
 /**
- * Session Check Endpoint
- * Returns user data from IDP by calling /api/auth/userinfo with stored access token
- * Called by frontend to check if user is logged in
+ * GET /api/me
+ * 
+ * Validate session and return user profile
+ * Called by frontend to check if user is logged in and get current account data
+ * 
+ * Critical: Client backend must forward IDP cookies to IDP server-to-server call
+ * - Browser does NOT auto-send cookies on server-to-server fetch
+ * - We manually extract Cookie header from incoming request and forward it
+ * 
+ * Flow:
+ * 1. Browser has both app_session_c cookie (this domain) + __sso_session cookie (from IDP)
+ * 2. Browser sends both cookies to GET /api/me
+ * 3. Client backend extracts Cookie header from request
+ * 4. Client backend forwards Cookie header to IDP POST /api/auth/session/validate
+ * 5. IDP server reads __sso_session from forwarded cookies
+ * 6. IDP returns user data and new CSRF token
+ * 7. Browser receives Set-Cookie header with new __csrf and updates it
+ * 
+ * Security:
+ * - Session binding prevents stolen tokens from being used on different device
+ * - CSRF tokens refreshed with each validate call
  */
 export async function GET(request: NextRequest) {
   try {
-    // Read HttpOnly app_session cookie (only accessible server-side)
-    const appSessionCookie = request.cookies.get("app_session")?.value;
+    // Check if app_session_c cookie exists
+    const appSessionCookie = request.cookies.get("app_session_c")?.value;
 
     if (!appSessionCookie) {
-      console.log("[/api/me] ❌ No session cookie found");
       return NextResponse.json(
-        { authenticated: false },
+        { authenticated: false, error: "No session cookie" },
         { status: 401 }
       );
     }
 
-    try {
-      const sessionData = JSON.parse(decodeURIComponent(appSessionCookie));
-      const sessionId = sessionData.sessionId;
+    // CRITICAL: Forward Cookie header to IDP server-to-server
+    // Browser does not auto-send cookies on fetch() - we must do it manually
+    const cookieHeader = request.headers.get("cookie") || "";
 
-      console.log("[/api/me] ✅ Session found:", sessionId.substring(0, 8) + "...");
+    // Call IDP session validate endpoint
+    const validateResponse = await fetch(`${IDP_SERVER}/api/auth/session`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        // Forward cookies from this request to IDP
+        // This includes __sso_session, __csrf, and any other IDP cookies
+        "Cookie": cookieHeader,
+        // Forward User-Agent for session binding validation
+        "User-Agent": request.headers.get("user-agent") || "",
+      },
+      body: JSON.stringify({
+        _csrf: request.cookies.get("__csrf")?.value || "",
+      }),
+    });
 
-      // Get access token from session store
-      const accessToken = await getAccessToken(sessionId);
-
-      if (!accessToken) {
-        console.log("[/api/me] ❌ No access token found in store");
+    if (!validateResponse.ok) {
+      if (validateResponse.status === 401) {
         return NextResponse.json(
-          { authenticated: false, error: "No access token" },
+          { authenticated: false, error: "Session invalid or expired" },
           { status: 401 }
         );
       }
-
-      console.log("[/api/me] 🔄 Calling IDP /api/auth/userinfo...");
-
-      // Call IDP's userinfo endpoint with access token
-      const userInfoResponse = await fetch(`${IDP_SERVER}/api/auth/userinfo`, {
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!userInfoResponse.ok) {
-        console.log("[/api/me] ❌ IDP userinfo call failed:", userInfoResponse.status);
-        return NextResponse.json(
-          { authenticated: false, error: "Failed to get user info from IDP" },
-          { status: 401 }
-        );
-      }
-
-      const userInfo = await userInfoResponse.json();
-
-      console.log("[/api/me] ✅ User info from IDP:");
-      console.log("[/api/me]   ID:", userInfo.id.substring(0, 8) + "...");
-      console.log("[/api/me]   Name:", userInfo.name);
-      console.log("[/api/me]   Email:", userInfo.email);
-
-      return NextResponse.json({
-        authenticated: true,
-        sessionId: sessionData.sessionId,
-        userId: userInfo.id,
-        userName: userInfo.name,
-        email: userInfo.email,
-        issuedAt: sessionData.issuedAt,
-      });
-    } catch (parseError) {
-      console.error("[/api/me] ❌ Failed to parse session cookie:", parseError);
+      const error = await validateResponse.json().catch(() => ({}));
       return NextResponse.json(
-        { authenticated: false, error: "Invalid session format" },
+        { authenticated: false, error: error.error || "Validation failed" },
         { status: 401 }
       );
     }
+
+    const validateData = await validateResponse.json();
+
+    if (!validateData.success) {
+      return NextResponse.json(
+        { authenticated: false, error: validateData.error },
+        { status: 401 }
+      );
+    }
+
+    // Build response with user data and account list
+    const response = NextResponse.json({
+      authenticated: true,
+      user: validateData.user,
+      account: validateData.account,
+      accounts: validateData.accounts,
+      activeAccountId: validateData.activeAccountId,
+    });
+
+    // Forward IDP Set-Cookie headers to client
+    // This updates __csrf and other IDP cookies on browser
+    const setCookieHeaders = validateResponse.headers.getSetCookie();
+    if (setCookieHeaders && setCookieHeaders.length > 0) {
+      for (const setCookie of setCookieHeaders) {
+        response.headers.append("Set-Cookie", setCookie);
+      }
+    }
+
+    return response;
   } catch (error) {
-    console.error("[/api/me] ❌ Error:", error);
+    console.error("[/api/me] Error:", error);
     return NextResponse.json(
       { authenticated: false, error: "Internal server error" },
       { status: 500 }

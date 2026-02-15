@@ -16,8 +16,11 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const toastShownRef = useRef(false);
 
-  useEffect(() => {
-    // Fetch session from /api/me (server-side only, secure)
+  // Fetch session from /api/me (server-side validation)
+  const fetchSession = (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     fetch('/api/me')
       .then(res => {
         if (res.ok) return res.json();
@@ -25,10 +28,54 @@ export default function Home() {
       })
       .then(data => {
         console.log('[Home] Session data from /api/me:', JSON.stringify(data, null, 2));
-        setSession(data);
+        if (data.authenticated && data.user) {
+          setSession({
+            sessionId: data.activeAccountId || 'unknown',
+            userId: data.user.id,
+            userName: data.user.name,
+            email: data.user.email,
+            issuedAt: (data.iat || 0) * 1000,
+          });
+        } else {
+          setSession(null);
+        }
       })
-      .catch(() => setSession(null))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        console.log('[Home] Session invalid or expired, clearing');
+        setSession(null);
+      })
+      .finally(() => {
+        if (!silent) {
+          setLoading(false);
+        }
+      });
+  };
+
+  // Initial fetch and event-based session validation
+  useEffect(() => {
+    // Initial page load
+    fetchSession();
+
+    // Re-fetch on: visibility change, focus, and widget close
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('[Home] Page became visible, validating session...');
+        fetchSession(true);
+      }
+    };
+
+    const handleFocus = () => {
+      console.log('[Home] Window focused, validating session...');
+      fetchSession(true);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
   // Show toast when loading completes
@@ -41,6 +88,7 @@ export default function Home() {
         toastShownRef,
         message: `You have not logged in`,
         robotVariant: 'head-palm.svg',
+        className: 'bg-yellow-700 border-gray-50 text-white',
       });
     } else {
       // User is logged in
@@ -53,9 +101,39 @@ export default function Home() {
   }, [loading, session]);
 
   useEffect(() => {
-    // Listen for postMessage from widget iframe
+    // Listen for messages from widget iframe
     const handleMessage = async (event: MessageEvent) => {
-      // Only respond to startAuth messages from iframe
+      // Handle global logout from widget
+      if (event.data?.type === 'globalLogout') {
+        console.log('[Home] Received globalLogout from widget, clearing session');
+        setSession(null);
+        toastShownRef.current = false;
+        return;
+      }
+
+      // Handle logout event from widget
+      if (event.data?.type === 'logout') {
+        console.log('[Home] Received logout event from widget, clearing session');
+        setSession(null);
+        toastShownRef.current = false;
+        return;
+      }
+
+      // Handle widget close - re-validate session
+      if (event.data?.type === 'widgetClosed') {
+        console.log('[Home] Widget closed, validating session...');
+        fetchSession(true);
+        return;
+      }
+
+      // Handle session update from widget (any account switch or auth change)
+      if (event.data?.type === 'sessionUpdate') {
+        console.log('[Home] Received session update from widget, refreshing...');
+        fetchSession();
+        return;
+      }
+
+      // Handle startAuth messages from iframe
       if (event.data?.type !== 'startAuth') {
         return;
       }
@@ -76,21 +154,6 @@ export default function Home() {
         console.error('[Home] Failed to start auth:', error);
         alert('Sign in failed. Please try again.');
         toastShownRef.current = true;
-      
-        // // Use global RobotToastUtils if available
-        // if (window.RobotToastUtils) {
-        //   window.RobotToastUtils.showRobotToast({
-        //     message: `Sign in failed`,
-        //     duration: 6000,
-        //     position: 'top-left',
-        //     robotSide: 'left',
-        //     robotVariant: 'error.svg',
-        //     robotPath: 'http://localhost:3000/robots',
-        //     typeSpeed: 25,
-        //   }).catch(error => {
-        //     console.error('Failed to show toast:', error);
-        //   });
-        // }
         Toaster({
           toastShownRef,
           message: `Sign in failed`,

@@ -71,6 +71,7 @@ export default function LoginForm() {
       }
 
       // Success - determine where to redirect
+      const returnTo = searchParams.get("return_to");
       const oauthParams = getOAuthParams();
       if (Object.keys(oauthParams).length > 0) {
         // OAuth2 flow - redirect back to authorize endpoint
@@ -79,6 +80,17 @@ export default function LoginForm() {
           authorizeUrl.searchParams.set(key, value);
         });
         window.location.href = authorizeUrl.toString();
+      } else if (returnTo) {
+        // User came from a client app widget
+        // Redirect to client's /api/auth/start to initiate OAuth flow
+        // This will generate PKCE and redirect back to IDP /api/auth/authorize
+        try {
+          const url = new URL("/api/auth/start", returnTo);
+          window.location.href = url.toString();
+        } catch {
+          // If return_to is invalid, redirect to it anyway
+          window.location.href = returnTo;
+        }
       } else {
         // Direct IDP login - redirect to dashboard
         router.push("/dashboard");
