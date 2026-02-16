@@ -61,21 +61,21 @@ export async function POST(request: NextRequest) {
 
     // Stage 11: Check if user already has IDP session
     // If so, reuse it; otherwise create new session
-    const cookies = request.headers.get("cookie") || "";
-    const existingSessionMatch = cookies.match(/(__sso_session|sso_refresh_token)=([^;,]+)/);
+    // Use proper cookie API instead of fragile regex parsing
+    const existingSessionId = request.cookies.get('__sso_session')?.value;
     let sessionId: string;
 
-    if (existingSessionMatch) {
-      // Session exists - reuse it for multiple account login
-      sessionId = existingSessionMatch[2].trim();
-      const existingSession = await getSession(sessionId);
+    if (existingSessionId) {
+      // Session cookie exists - try to reuse for multi-account login
+      const existingSession = await getSession(existingSessionId);
       
       if (existingSession) {
         console.log("[Login] ✅ Reusing existing IDP session for multi-account login");
-        // Add this account to the session's logons
-        await addAccountToSession(sessionId, primaryAccount.id);
+        // Add this account to the session's logons and make it active
+        await addAccountToSession(existingSessionId, primaryAccount.id);
+        sessionId = existingSessionId;
       } else {
-        // Session expired - create new one
+        // Session expired/invalid - create new one
         console.log("[Login] Session expired, creating new session");
         sessionId = await createSession(user.id, primaryAccount.id);
       }

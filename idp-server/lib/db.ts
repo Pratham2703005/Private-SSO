@@ -683,23 +683,52 @@ export async function addAccountToSession(
         },
       ])
 
-    // UNIQUE constraint violation is OK - account already in session
+    // UNIQUE constraint violation means account already in session
+    // It may be revoked from a previous sign-out — un-revoke it
     if (error) {
-      // Check if it's a UNIQUE constraint error
       if (error.code === "23505" || error.message?.includes("unique")) {
-        console.log("[DB] ℹ️  Account already in session logons (UNIQUE constraint)");
-        return;
+        console.log("[DB] ℹ️  Account already in session logons, un-revoking if needed");
+        await supabase
+          .from("session_logons")
+          .update({
+            revoked: false,
+            revoked_at: null,
+            last_active_at: new Date().toISOString(),
+          })
+          .eq("session_id", sessionId)
+          .eq("account_id", accountId);
+      } else {
+        console.error("[DB] Error adding account to session:", error);
+        throw error;
       }
-      console.error("[DB] Error adding account to session:", error);
-      throw error;
     }
 
-    console.log("[DB] ✅ Account added to session:", accountId.substring(0, 8) + "...");
+    // Always update active_account_id to the newly added/re-added account
+    await supabase
+      .from("sessions")
+      .update({ active_account_id: accountId })
+      .eq("id", sessionId);
+
+    console.log("[DB] ✅ Account added to session and set as active:", accountId.substring(0, 8) + "...");
   } catch (error) {
     // Check if it's a UNIQUE constraint error (account already logged in)
     const errorMessage = (error as Error)?.message || "";
     if (errorMessage.includes("unique") || errorMessage.includes("UNIQUE")) {
       console.log("[DB] ℹ️  Account already in session logons (UNIQUE constraint)");
+      // Still un-revoke and set as active
+      await supabase
+        .from("session_logons")
+        .update({
+          revoked: false,
+          revoked_at: null,
+          last_active_at: new Date().toISOString(),
+        })
+        .eq("session_id", sessionId)
+        .eq("account_id", accountId);
+      await supabase
+        .from("sessions")
+        .update({ active_account_id: accountId })
+        .eq("id", sessionId);
       return;
     }
     console.error("[DB] Error adding account to session:", error);

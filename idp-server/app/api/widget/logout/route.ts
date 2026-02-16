@@ -2,15 +2,19 @@
  * POST /api/widget/logout
  *
  * Handles logout from widget popup
- * Supports two modes:
+ * Supports three modes:
  * - "app": Returns logoutUrl for client to redirect to (keeps IDP session)
+ * - "current": Signs out only the active account (revokes its logon, switches to next)
  * - "global": Destroys entire IDP session (all accounts everywhere)
  *
  * Request body:
- * { mode: "app" | "global" }
+ * { mode: "app" | "current" | "global" }
  *
  * Response (app mode):
  * { logoutUrl: "https://client-a.com/api/auth/logout-app" }
+ *
+ * Response (current mode):
+ * { success: true, nextAccountId?: string }
  *
  * Response (global mode):
  * 204 No Content (with cookies cleared)
@@ -18,17 +22,18 @@
  * Security:
  * - Validates __sso_session cookie
  * - For app logout, queries Referer or Origin header to determine client origin
+ * - For current logout, revokes logon + tokens for active account only
  * - For global logout, revokes all tokens and clears IDP session
  * - Does NOT return sensitive data
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getMasterCookie, clearMasterCookie } from '@/lib/utils';
-import { getSession, revokeAllUserTokens, revokeSession } from '@/lib/db';
+import { getSession, revokeAllUserTokens, revokeSession, markLogonRevoked, revokeAccountTokensPrecise, switchActiveAccount, getActiveSessionLogons, supabase } from '@/lib/db';
 import { WIDGET_ALLOWED_CLIENTS } from '@/config/widget-clients';
 
 interface LogoutRequest {
-  mode: 'app' | 'global';
+  mode: 'app' | 'current' | 'global';
 }
 
 interface LogoutResponse {
@@ -88,12 +93,55 @@ export async function POST(request: NextRequest) {
     const { mode } = body;
 
     // Validate mode
-    if (mode !== 'app' && mode !== 'global') {
+    if (mode !== 'app' && mode !== 'current' && mode !== 'global') {
       console.log('[Widget] /logout: Invalid logout mode:', mode);
       return NextResponse.json(
         { success: false, error: 'Invalid logout mode' },
         { status: 400 }
       );
+    }
+
+    // Handle current-account logout (revoke only active account's logon)
+    if (mode === 'current') {
+      console.log('[Widget] /logout: Current account logout requested');
+
+      const activeAccountId = session.active_account_id;
+      if (!activeAccountId) {
+        return NextResponse.json(
+          { success: false, error: 'No active account' },
+          { status: 400 }
+        );
+      }
+
+      // Revoke this account's logon in the session
+      await markLogonRevoked(sessionId, activeAccountId);
+
+      // Revoke this account's refresh tokens for this session
+      await revokeAccountTokensPrecise(session.user_id, activeAccountId, sessionId);
+
+      // Find next account to switch to
+      const remainingLogons = await getActiveSessionLogons(sessionId);
+
+      if (remainingLogons.length > 0) {
+        // Switch to next available account
+        const nextAccountId = remainingLogons[0].account_id;
+        await switchActiveAccount(sessionId, nextAccountId);
+        console.log('[Widget] /logout (current): Switched to next account:', nextAccountId.substring(0, 8) + '...');
+        return NextResponse.json({ success: true, nextAccountId }, { status: 200 });
+      } else {
+        // No more active logons — clear active_account_id but keep session for jar visibility
+        // The session still exists so jar accounts can reference it
+        console.log('[Widget] /logout (current): No more active accounts, clearing active_account_id');
+        
+        // We don't destroy the session — just clear the active account
+        // This way jar accounts still work
+        await supabase
+          .from('sessions')
+          .update({ active_account_id: null })
+          .eq('id', sessionId);
+
+        return NextResponse.json({ success: true, nextAccountId: null }, { status: 200 });
+      }
     }
 
     // Handle app-only logout (client will handle the actual logout)

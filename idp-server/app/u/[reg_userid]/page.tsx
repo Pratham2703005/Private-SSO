@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
-import { getSession, getUserById } from "@/lib/db";
+import { getSession, getUserById, getAccountById } from "@/lib/db";
+import { getAllAccountsWithIndices } from "@/lib/account-indexing";
 import Link from "next/link";
 import { AccountLayout } from "@/components/account";
-import { getAccountByIndex } from "@/lib/account-indexing";
 import {
   Card,
   CardHeader,
@@ -30,32 +30,50 @@ export default async function HomePage({ params }: PageProps) {
   const { reg_userid } = await params;
   const cookieStore = await cookies();
   const sessionId = cookieStore.get("__sso_session")?.value;
+  const jarCookie = cookieStore.get("idp_jar")?.value || null;
 
   let user: User | null = null;
   let accountId: string | null = null;
 
-  if (sessionId) {
-    const session = await getSession(sessionId);
-    if (session && session.user_id) {
-      user = await getUserById(session.user_id);
-      
-      // Check if reg_userid is an index (0, 1, 2...) or an account ID
-      const isIndex = /^\d+$/.test(reg_userid);
-      
-      if (isIndex) {
-        // Resolve index to account ID
-        const indexNum = parseInt(reg_userid, 10);
-        const account = await getAccountByIndex(sessionId, indexNum);
-        
-        if (!account) {
-          notFound();
+  // Resolve account from reg_userid (index or account ID)
+  const isIndex = /^\d+$/.test(reg_userid);
+
+  if (isIndex) {
+    const indexNum = parseInt(reg_userid, 10);
+
+    // Build stable combined account list: jar order first, then session-only accounts appended
+    // This keeps jar indices stable while also covering accounts not yet in the jar.
+    const jarAccountIds = jarCookie ? jarCookie.split(',').filter(Boolean) : [];
+    const combinedIds = [...jarAccountIds];
+
+    // Append session accounts not already in jar
+    if (sessionId) {
+      const session = await getSession(sessionId);
+      if (session) {
+        const sessionAccounts = await getAllAccountsWithIndices(sessionId);
+        for (const acc of sessionAccounts) {
+          if (!combinedIds.includes(acc.id)) {
+            combinedIds.push(acc.id);
+          }
         }
-        
-        accountId = account.id;
-      } else {
-        // Use provided account ID directly
-        accountId = reg_userid;
       }
+    }
+
+    if (indexNum < 0 || indexNum >= combinedIds.length) {
+      notFound();
+    }
+
+    accountId = combinedIds[indexNum];
+    const accountData = await getAccountById(accountId);
+    if (accountData?.user_id) {
+      user = await getUserById(accountData.user_id);
+    }
+  } else {
+    // Direct account ID
+    accountId = reg_userid;
+    const accountData = await getAccountById(reg_userid);
+    if (accountData?.user_id) {
+      user = await getUserById(accountData.user_id);
     }
   }
 

@@ -20,7 +20,7 @@ import type { IndexedAccount } from '@/lib/account-indexing';
 export default async function AccountSwitcherPage() {
   const theme = getThemeClasses();
   let accounts: IndexedAccount[] = [];
-  let isSignedOut = false; // Track if user is signed out (loading from jar, not active session)
+  let isSignedOut = false; // Track if user is signed out (no active session at all)
   
   try {
     const cookieStore = await cookies();
@@ -28,87 +28,144 @@ export default async function AccountSwitcherPage() {
     const sessionId = cookieStore.get('__sso_session')?.value;
     console.log('[AccountSwitcher] sessionId from __sso_session:', sessionId ? 'present' : 'missing');
 
-    // FLOW 1: Active session exists
+    let activeAccountId: string | null = null;
+
+    // Use Map to prevent duplicate accounts and maintain order
+    const accountsMap = new Map<string, IndexedAccount>();
+
+    // FLOW 1: Active session exists - get active accounts from session_logons
     if (sessionId) {
       console.log('[AccountSwitcher] Active session found, fetching accounts');
+      
+      // Get the active account ID from the sessions table
+      try {
+        const sessionResponse = await supabase
+          .from('sessions')
+          .select('active_account_id')
+          .eq('id', sessionId)
+          .single();
+        
+        if (sessionResponse.data) {
+          activeAccountId = sessionResponse.data.active_account_id;
+          console.log('[AccountSwitcher] Active account ID:', activeAccountId);
+        }
+      } catch (error) {
+        console.error('[AccountSwitcher] Failed to get active account ID:', error);
+      }
+      
       const sessionAccounts = await getAllAccountsWithIndices(sessionId);
       console.log('[AccountSwitcher] Session accounts:', sessionAccounts?.length);
+      
       if (sessionAccounts && sessionAccounts.length > 0) {
-        accounts = sessionAccounts;
-        isSignedOut = false; // User has active session
+        // Mark each session account based on whether it's the active one
+        sessionAccounts.forEach(acc => {
+          const state = acc.id === activeAccountId ? 'active' : 'can_switch';
+          accountsMap.set(acc.id, {
+            ...acc,
+            accountState: state as 'active' | 'can_switch' | 'needs_reauth'
+          });
+        });
       }
     }
 
-    // FLOW 2: No active session - try remembered accounts from idp_jar
-    if (accounts.length === 0) {
-      isSignedOut = true; // No active session, accounts are from jar (signed out state)
-      console.log('[AccountSwitcher] No active session, checking idp_jar');
-      const jarCookie = cookieStore.get('idp_jar')?.value;
-      console.log('[AccountSwitcher] idp_jar cookie:', jarCookie ? `"${jarCookie}"` : 'missing');
+    // FLOW 2: Check idp_jar for remembered accounts NOT already in session
+    const jarCookie = cookieStore.get('idp_jar')?.value;
+    console.log('[AccountSwitcher] idp_jar cookie:', jarCookie ? `"${jarCookie}"` : 'missing');
+    
+    if (jarCookie) {
+      const jarAccountIds = jarCookie.split(',').filter(Boolean);
+      console.log('[AccountSwitcher] Found', jarAccountIds.length, 'remembered account IDs');
       
-      if (jarCookie) {
-        const accountIds = jarCookie.split(',').filter(Boolean);
-        console.log('[AccountSwitcher] Split accountIds:', accountIds);
-        console.log('[AccountSwitcher] Found', accountIds.length, 'remembered account IDs');
+      if (jarAccountIds.length > 0) {
+        // Only process jar accounts that are NOT already in the session map
+        const jarAccountsToCheck = jarAccountIds.filter(id => !accountsMap.has(id));
+        console.log('[AccountSwitcher] Jar accounts to check (not in session):', jarAccountsToCheck.length);
         
-        if (accountIds.length > 0) {
-          // Fetch account details from DB
-          console.log('[AccountSwitcher] Querying DB for account IDs:', accountIds);
+        if (jarAccountsToCheck.length > 0) {
           try {
+            // Fetch account details from DB
             const response = await supabase
               .from('user_accounts')
               .select('id, name, email')
-              .in('id', accountIds);
+              .in('id', jarAccountsToCheck);
             
-            const accountsData = response.data;
-            const dbError = response.error;
+            const accountsData = response.data || [];
+            console.log('[AccountSwitcher] DB found', accountsData.length, 'jar accounts');
             
-            console.log('[AccountSwitcher] DB query response status:', response.status || 'unknown');
-            console.log('[AccountSwitcher] DB query data count:', accountsData?.length || 0);
-            
-            if (dbError) {
-              console.error('[AccountSwitcher] DB query error details:', {
-                message: dbError.message || 'no message',
-                code: dbError.code || 'no code',
-                details: dbError.details || 'no details',
-                hint: dbError.hint || 'no hint',
-                fullError: JSON.stringify(dbError)
-              });
-            }
-
-            if (accountsData && accountsData.length > 0) {
-              console.log('[AccountSwitcher] Found', accountsData.length, 'accounts in DB');
-              accounts = accountIds
-                .map((id, index) => {
-                  const account = accountsData.find((acc) => acc.id === id);
-                  console.log(`[AccountSwitcher] Account ${id}:`, account ? 'found' : 'NOT FOUND');
-                  return account ? {
-                    id: account.id,
-                    name: account.name,
-                    email: account.email,
-                    index,
-                    isPrimary: false,
-                    logged_in_at: new Date().toISOString(),
-                    last_active_at: new Date().toISOString(),
-                    revoked: false,
-                  } : null;
-                })
-                .filter(Boolean) as IndexedAccount[];
+            // For jar accounts, check if they have valid session in CURRENT sessionId only
+            for (const account of accountsData) {
+              let state: 'active' | 'can_switch' | 'needs_reauth' = 'needs_reauth';
               
-              console.log('[AccountSwitcher] Mapped to', accounts.length, 'IndexedAccounts');
-            } else {
-              console.log('[AccountSwitcher] No accounts found in DB for IDs:', accountIds);
+              try {
+                // Only mark can_switch if account has valid logon in CURRENT sessionId
+                if (sessionId) {
+                  const logonCheck = await supabase
+                    .from('session_logons')
+                    .select('id')
+                    .eq('session_id', sessionId)
+                    .eq('account_id', account.id)
+                    .not('revoked', 'is', true)
+                    .single();
+                  
+                  if (logonCheck.data) {
+                    // Check if CURRENT session is not expired
+                    const sessionCheck = await supabase
+                      .from('sessions')
+                      .select('expires_at')
+                      .eq('id', sessionId)
+                      .single();
+                    
+                    if (sessionCheck.data?.expires_at && new Date(sessionCheck.data.expires_at) > new Date()) {
+                      console.log(`[AccountSwitcher] Account ${account.id}: can_switch (valid logon in current session)`);
+                      state = 'can_switch';
+                    }
+                  }
+                }
+              } catch (error) {
+                console.log(`[AccountSwitcher] Account ${account.id}: needs_reauth (not in current session)`);
+                state = 'needs_reauth';
+              }
+              
+              // Add to map (only if not already present from session)
+              if (!accountsMap.has(account.id)) {
+                accountsMap.set(account.id, {
+                  index: accountsMap.size,
+                  id: account.id,
+                  name: account.name,
+                  email: account.email,
+                  avatar_url: undefined,
+                  isPrimary: false,
+                  logged_in_at: new Date().toISOString(),
+                  last_active_at: new Date().toISOString(),
+                  revoked: false,
+                  accountState: state
+                });
+              }
             }
-          } catch (queryError) {
-            console.error('[AccountSwitcher] Exception during DB query:', queryError);
+          } catch (error) {
+            console.error('[AccountSwitcher] Error processing jar accounts:', error);
           }
         }
-      } else {
-        console.log('[AccountSwitcher] idp_jar cookie is missing - no remembered accounts');
       }
     }
 
-    console.log('[AccountSwitcher] Final accounts count:', accounts.length);
+    // Compute stable jarIndex from idp_jar cookie order
+    const jarCookieValue = cookieStore.get('idp_jar')?.value;
+    const jarAccountIds = jarCookieValue ? jarCookieValue.split(',').filter(Boolean) : [];
+
+    // Convert Map to array, updating indices and adding stable jarIndex
+    accounts = Array.from(accountsMap.values()).map((acc, idx) => {
+      const jarPos = jarAccountIds.indexOf(acc.id);
+      return {
+        ...acc,
+        index: idx,
+        jarIndex: jarPos >= 0 ? jarPos : undefined,
+      };
+    });
+
+    // Set isSignedOut only if NO accounts at all
+    isSignedOut = accounts.length === 0;
+    console.log('[AccountSwitcher] Final: ' + accounts.length + ' accounts, isSignedOut=' + isSignedOut);
 
     // If no accounts found, show sign-in prompt
     if (accounts.length === 0) {

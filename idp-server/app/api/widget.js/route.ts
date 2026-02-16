@@ -177,7 +177,11 @@ export async function GET() {
       if (!iframe) {
         iframe = document.createElement('iframe');
         iframe.id = '__account_switcher_iframe';
-        iframe.src = WIDGET_URL;
+        
+        // Build iframe URL with parentOrigin
+        const parentOriginParam = encodeURIComponent(getParentOrigin() || 'http://localhost:3003');
+        iframe.src = WIDGET_URL + '?parentOrigin=' + parentOriginParam;
+        
         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-top-navigation');
         iframe.setAttribute('allow', 'cross-origin-isolated');
         iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');

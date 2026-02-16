@@ -115,26 +115,8 @@ export default function Home() {
     };
   }, []);
 
-  // Preload widget iframe for instant loading on click
-  useEffect(() => {
-    console.log('[Home] Preloading widget iframe...');
-    
-    // Create hidden iframe to preload widget
-    const iframe = document.createElement('iframe');
-    iframe.src = 'http://localhost:3000/widget/account-switcher';
-    iframe.style.display = 'none';
-    iframe.title = 'Widget (preloaded)';
-    document.body.appendChild(iframe);
-
-    console.log('[Home] Widget iframe preloaded in background');
-
-    // Cleanup on unmount
-    return () => {
-      if (iframe.parentNode) {
-        iframe.parentNode.removeChild(iframe);
-      }
-    };
-  }, []);
+  // Note: Widget iframe is injected via AccountSwitcher script (widget.js)
+  // We don't preload it here to avoid duplicate iframe issues
 
   // Show toast when loading completes
   useEffect(() => {
@@ -157,20 +139,36 @@ export default function Home() {
     }
   }, [loading, session]);
 
+  // Reference to actual widget iframe (captured from first message)
+  const widgetContentWindowRef = useRef<Window | null>(null);
+
   useEffect(() => {
-    // Listen for messages from widget iframe
     const handleMessage = async (event: MessageEvent) => {
+      // Only accept messages from localhost:3000 (IDP)
+      if (event.origin !== 'http://localhost:3000') return;
+
+      // Capture the actual widget iframe on first message
+      if (!widgetContentWindowRef.current && event.source) {
+        widgetContentWindowRef.current = event.source as Window;
+      }
+      
       // Handle global logout from widget
       if (event.data?.type === 'globalLogout') {
-        console.log('[Home] Received globalLogout from widget, clearing session');
         setSession(null);
         toastShownRef.current = false;
+        
+        // Notify widget iframe to refetch its state
+        if (widgetContentWindowRef.current) {
+          widgetContentWindowRef.current.postMessage(
+            { type: 'sessionUpdate' },
+            'http://localhost:3000'
+          );
+        }
         return;
       }
 
       // Handle logout event from widget
       if (event.data?.type === 'logout') {
-        console.log('[Home] Received logout event from widget, clearing session');
         setSession(null);
         toastShownRef.current = false;
         return;
@@ -178,7 +176,6 @@ export default function Home() {
 
       // Handle widget close - re-validate session
       if (event.data?.type === 'widgetClosed') {
-        console.log('[Home] Widget closed, validating session...');
         fetchSession(true);
         return;
       }
@@ -191,36 +188,46 @@ export default function Home() {
       }
 
       // Handle startAuth messages from iframe
-      if (event.data?.type !== 'startAuth') {
+      if (event.data?.type === 'startAuth') {
+        const iframeOrigin = 'http://localhost:3000';
+        if (event.origin !== iframeOrigin) {
+          return;
+        }
+
+        try {
+          const url = new URL('/api/auth/start', window.location.origin);
+          if (event.data.email) {
+            url.searchParams.set('email', event.data.email);
+          }
+          if (event.data.prompt) {
+            url.searchParams.set('prompt', event.data.prompt);
+          }
+          
+          const response = await fetch(url.toString());
+          const data = await response.json();
+
+          if (data.url) {
+            window.location.href = data.url;
+          } else {
+            alert('Failed to start authentication');
+          }
+        } catch (error) {
+          console.error('Sign in failed:', error);
+          alert('Sign in failed. Please try again.');
+        }
         return;
       }
 
-      console.log('[Home] Received startAuth from widget', event.data.email ? `for ${event.data.email}` : '');
-
-      try {
-        // Call our own /api/auth/start to get OAuth authorize URL with PKCE
-        const url = new URL('/api/auth/start', window.location.origin);
-        if (event.data.email) {
-          url.searchParams.set('email', event.data.email);
+      // Handle navigation requests from widget
+      if (event.data?.type === 'navigate') {
+        if (event.origin !== 'http://localhost:3000') {
+          return;
         }
-        
-        const response = await fetch(url.toString());
-        const data = await response.json();
-
-        if (data.url) {
-          console.log('[Home] Redirecting to authorize URL');
-          // Redirect to IDP authorize endpoint with all OAuth params
-          window.location.href = data.url;
+        const targetUrl = event.data.url;
+        if (targetUrl) {
+          window.location.href = targetUrl;
         }
-      } catch (error) {
-        console.error('[Home] Failed to start auth:', error);
-        alert('Sign in failed. Please try again.');
-        toastShownRef.current = true;
-        Toaster({
-          toastShownRef,
-          message: `Sign in failed`,
-          robotVariant: 'error.svg',
-        })
+        return;
       }
     };
 

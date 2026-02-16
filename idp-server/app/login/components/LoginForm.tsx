@@ -78,24 +78,35 @@ export default function LoginForm() {
       // Success - determine where to redirect
       const returnTo = searchParams.get("return_to");
       const oauthParams = getOAuthParams();
-      if (Object.keys(oauthParams).length > 0) {
+      
+      // Check return_to FIRST (widget return takes priority)
+      if (returnTo) {
+        // Check if return_to is a widget URL (on IDP domain)
+        try {
+          const returnUrl = new URL(returnTo, window.location.origin);
+          // If return_to is a widget URL on this origin, redirect directly
+          if (returnUrl.origin === window.location.origin) {
+            console.log('[LoginForm] Redirecting to widget (same origin):', returnTo);
+            window.location.href = returnTo;
+          } else {
+            // Cross-origin return_to - assume it's a client app
+            // Redirect to client's /api/auth/start to initiate OAuth flow
+            console.log('[LoginForm] Redirecting to client app:', returnTo);
+            const url = new URL("/api/auth/start", returnTo);
+            window.location.href = url.toString();
+          }
+        } catch {
+          // If return_to is invalid, redirect to it anyway
+          console.log('[LoginForm] Redirecting to return_to (fallback):', returnTo);
+          window.location.href = returnTo;
+        }
+      } else if (Object.keys(oauthParams).length > 0) {
         // OAuth2 flow - redirect back to authorize endpoint
         const authorizeUrl = new URL("/api/auth/authorize", window.location.origin);
         Object.entries(oauthParams).forEach(([key, value]) => {
           authorizeUrl.searchParams.set(key, value);
         });
         window.location.href = authorizeUrl.toString();
-      } else if (returnTo) {
-        // User came from a client app widget
-        // Redirect to client's /api/auth/start to initiate OAuth flow
-        // This will generate PKCE and redirect back to IDP /api/auth/authorize
-        try {
-          const url = new URL("/api/auth/start", returnTo);
-          window.location.href = url.toString();
-        } catch {
-          // If return_to is invalid, redirect to it anyway
-          window.location.href = returnTo;
-        }
       } else {
         // Direct IDP login - redirect to dashboard
         router.push("/dashboard");

@@ -12,9 +12,10 @@ export default function ActiveAccountCard({ account }: ActiveAccountCardProps) {
   const theme = getThemeClasses();
   
   const handleManageClick = () => {
-    // Redirect to account management page using index-based URL
+    // Redirect to account management page on IDP server using stable jar index
     if (typeof window !== 'undefined' && window.top) {
-      window.top.location.href = `/u/${account.index}`;
+      const stableIndex = account.jarIndex ?? account.index;
+      window.top.location.href = `${window.location.origin}/u/${stableIndex}`;
     }
   };
 

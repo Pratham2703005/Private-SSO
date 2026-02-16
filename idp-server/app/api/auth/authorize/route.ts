@@ -4,6 +4,7 @@ import {
   getSession,
   getUserById,
   getUserAccounts,
+  getAccountById,
   getOAuthClient,
   createAuthorizationCode,
 } from "@/lib/db";
@@ -122,36 +123,50 @@ export async function GET(request: NextRequest) {
       sessionId: sessionId ? sessionId.substring(0, 16) + "..." : "NOT_FOUND",
     });
 
-    if (sessionId) {
+    // prompt=login means the user explicitly wants the login page (re-auth, add account)
+    // Skip auto-approval even if there's a valid session
+    if (prompt === 'login') {
+      console.log('[Authorize] prompt=login → forcing login page (skipping session auto-approve)');
+    } else if (sessionId) {
       // User is logged in, fetch session
       const session = await getSession(sessionId);
       console.log('[Authorize] Session found:', !!session);
 
       if (session && session.expires_at > new Date().toISOString()) {
         // Session is valid, generate authorization code
-        const user = await getUserById(session.user_id);
+        // Use the active account (set by login/switch) — NOT the primary account by user_id
+        // This correctly handles multi-user sessions (Account A = user1, Account B = user2)
+        const activeAccountId = session.active_account_id;
+        let activeAccount = null;
+
+        if (activeAccountId) {
+          activeAccount = await getAccountById(activeAccountId);
+        }
+
+        // Fallback to legacy behavior if active_account_id not set
+        if (!activeAccount) {
+          const accounts = await getUserAccounts(session.user_id);
+          activeAccount = accounts.find((acc) => acc.is_primary) || accounts[0];
+        }
+
+        console.log('[Authorize] Active account:', activeAccount?.id ? activeAccount.id.substring(0, 8) + '...' : 'none');
+
+        if (!activeAccount) {
+          const errorResponse = NextResponse.json(
+            { success: false, error: "No account found" },
+            { status: 500 }
+          );
+          return addCorsHeaders(errorResponse, request);
+        }
+
+        // Get the user who owns this account
+        const user = await getUserById(activeAccount.user_id || session.user_id);
         console.log('[Authorize] User found:', !!user);
         
         if (!user) {
           const errorResponse = NextResponse.json(
             { success: false, error: "User not found" },
             { status: 404 }
-          );
-          return addCorsHeaders(errorResponse, request);
-        }
-
-        const accounts = await getUserAccounts(session.user_id);
-        console.log('[Authorize] Accounts found:', accounts.length);
-        
-        const primaryAccount =
-          accounts.find((acc) => acc.is_primary) || accounts[0];
-
-        console.log('[Authorize] Primary account:', !!primaryAccount);
-
-        if (!primaryAccount) {
-          const errorResponse = NextResponse.json(
-            { success: false, error: "No account found" },
-            { status: 500 }
           );
           return addCorsHeaders(errorResponse, request);
         }
@@ -166,13 +181,13 @@ export async function GET(request: NextRequest) {
         });
 
         const authCode = await createAuthorizationCode(
-          session.user_id,
+          user.id,  // Use the user who owns the active account
           clientId,
           redirectUri,
-          codeChallenge, // Optional: PKCE can be provided but not required for backward compatibility
+          codeChallenge,
           state,
           scopesArray,
-          ttlSeconds // Pass optional TTL from query param
+          ttlSeconds
         );
 
         console.log('[Authorize] auth code created:', {

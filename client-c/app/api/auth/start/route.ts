@@ -10,8 +10,9 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const email = searchParams.get('email');
+    const prompt = searchParams.get('prompt'); // 'login' = force login page
     
-    console.log("[AuthStart] 🔐 Generating PKCE and authorization URL...", email ? `for ${email}` : '');
+    console.log("[AuthStart] 🔐 Generating PKCE and authorization URL...", email ? `for ${email}` : '', prompt ? `prompt=${prompt}` : '');
 
     // Generate state for CSRF protection
     const state = Array.from(crypto.getRandomValues(new Uint8Array(32)))
@@ -40,6 +41,11 @@ export async function GET(request: NextRequest) {
     // Pass email as login_hint if provided
     if (email) {
       authorizeUrl.searchParams.set("login_hint", email);
+    }
+
+    // Pass prompt if provided (e.g., 'login' to force login page)
+    if (prompt) {
+      authorizeUrl.searchParams.set("prompt", prompt);
     }
 
     console.log("[AuthStart] 🔗 Authorize URL built");

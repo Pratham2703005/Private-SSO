@@ -1,13 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { IndexedAccount } from '@/lib/account-indexing';
 import { getThemeClasses } from '@/lib/theme-config';
 
 interface WidgetClientState {
   accounts: IndexedAccount[];
-  isSignedOut: boolean;
   error?: string;
 }
 
@@ -17,26 +16,83 @@ interface WidgetClientProps {
   initialIsSignedOut?: boolean;
 }
 
-function initializeWidgetState(
-  initialAccounts: IndexedAccount[],
-  initialError?: string,
-  initialIsSignedOut?: boolean
-): WidgetClientState {
-  // Simple initialization: always use server data
-  return {
-    accounts: initialAccounts,
-    isSignedOut: initialIsSignedOut ?? false,
-    error: initialError,
-  };
-}
-
-export default function WidgetClient({ initialAccounts, initialError, initialIsSignedOut }: WidgetClientProps) {
+export default function WidgetClient({ initialAccounts, initialError }: WidgetClientProps) {
   const theme = getThemeClasses();
-  const [state, setState] = useState<WidgetClientState>(() =>
-    initializeWidgetState(initialAccounts, initialError, initialIsSignedOut)
-  );
+  const parentOriginRef = useRef<string | null>(null);
+  
+  const [state, setState] = useState<WidgetClientState>({
+    accounts: initialAccounts,
+    error: initialError,
+  });
+  
+  // Get parentOrigin from URL params on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const origin = new URLSearchParams(window.location.search).get('parentOrigin');
+      parentOriginRef.current = origin;
+      
+      // Notify parent that widget is ready
+      if (origin && window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'iframeReady' }, origin);
+      }
+    }
+  }, []);
 
-  // Handle global logout
+  // Helper: refetch accounts from API
+  const refetchAccounts = async (): Promise<void> => {
+    try {
+      const response = await fetch('/api/widget/account-switcher', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setState({
+        accounts: data.accounts || [],
+        error: undefined,
+      });
+    } catch {
+      // Silent fail
+    }
+  };
+
+  // Helper: notify parent
+  const notifyParent = (type: string, extra?: Record<string, unknown>): void => {
+    if (parentOriginRef.current && typeof window !== 'undefined' && window.parent && window.parent !== window) {
+      window.parent.postMessage({ type, ...extra }, parentOriginRef.current);
+    }
+  };
+
+  // Handle sign out from CURRENT account only
+  const handleLogoutCurrent = async (): Promise<void> => {
+    try {
+      const response = await fetch('/api/widget/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'current' }),
+        credentials: 'include',
+      });
+
+      if (!response.ok && response.status !== 401) {
+        console.error('[WidgetClient] Failed to logout current account:', response.status);
+        setState(prev => ({ ...prev, error: 'Failed to sign out' }));
+        return;
+      }
+
+      // Refetch to get updated account list
+      await refetchAccounts();
+
+      // Notify parent to refresh its session
+      notifyParent('sessionUpdate');
+
+      console.log('[WidgetClient] Current account logout successful');
+    } catch (error) {
+      console.error('[WidgetClient] Error logging out current account:', error);
+      setState(prev => ({ ...prev, error: 'Error signing out' }));
+    }
+  };
+
+  // Handle global logout (all accounts)
   const handleLogoutGlobal = async (): Promise<void> => {
     try {
       const response = await fetch('/api/widget/logout', {
@@ -46,77 +102,52 @@ export default function WidgetClient({ initialAccounts, initialError, initialIsS
         credentials: 'include',
       });
 
-      if (!response.ok) {
+      if (!response.ok && response.status !== 401) {
         console.error('[WidgetClient] Failed to logout globally:', response.status);
-        setState(prev => ({ 
-          ...prev, 
-          error: 'Failed to sign out',
-        }));
+        setState(prev => ({ ...prev, error: 'Failed to sign out' }));
         return;
       }
 
-      // Save all current account IDs as signed out (for persistence across reload)
-      if (state.accounts && state.accounts.length > 0) {
-        const signedOutIds = new Set(state.accounts.map(acc => acc.id));
-        console.log('[WidgetClient] Marked accounts as signed out:', Array.from(signedOutIds));
-      }
+      // Notify parent FIRST so it clears its session
+      notifyParent('globalLogout');
 
-      // Mark as signed out immediately without waiting
-      // Accounts data is preserved in state
-      setState(prev => ({
-        ...prev,
-        isSignedOut: true,
-        error: undefined,
-      }));
+      // Then refetch — jar accounts will come back as needs_reauth
+      await refetchAccounts();
 
-      // Notify parent app of global logout so it can clear its refresh token
-      if (typeof window !== 'undefined' && window.parent) {
-        console.log('[WidgetClient] Notifying parent of global logout');
-        window.parent.postMessage(
-          { type: 'globalLogout' },
-          '*'
-        );
-      }
-
-      console.log('[WidgetClient] Global logout successful, accounts marked as signed out');
+      console.log('[WidgetClient] Global logout successful');
     } catch (error) {
       console.error('[WidgetClient] Error logging out globally:', error);
-      setState(prev => ({ 
-        ...prev, 
-        error: 'Error signing out',
-      }));
+      setState(prev => ({ ...prev, error: 'Error signing out' }));
     }
   };
 
-  // Handle add account
+  // Handle add account — force login page (not auto-approve)
   const handleAddAccount = (): void => {
-    // Send message to parent frame (client app) to initiate OAuth flow
-    // Parent will call /api/auth/start and redirect
-    if (typeof window !== 'undefined' && window.parent) {
-      console.log('[WidgetClient] Sending startAuth message to parent');
-      window.parent.postMessage(
-        { type: 'startAuth' },
-        '*'
-      );
-    }
+    notifyParent('startAuth', { prompt: 'login' });
   };
 
-  // Handle clicking a signed-out account
-  const handleSignedOutAccountClick = (account?: IndexedAccount): void => {
-    // Send message to parent frame (client app) to initiate OAuth flow
-    // Parent will call /api/auth/start and redirect
-    if (typeof window !== 'undefined' && window.parent) {
-      console.log('[WidgetClient] Sending startAuth message to parent', account?.email);
-      window.parent.postMessage(
-        { type: 'startAuth', email: account?.email },
-        '*'
-      );
-    }
+  // Listen for session updates from parent app
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data?.type === 'sessionUpdate') {
+        await refetchAccounts();
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Handle clicking a needs_reauth account (re-authenticate) — force login page
+  const handleReauthenticateAccountClick = (account?: IndexedAccount): void => {
+    notifyParent('startAuth', { email: account?.email, prompt: 'login' });
   };
 
-  // Handle account switch when not signed out
+  // Handle account switch (can_switch → active)
   const handleAccountSwitch = async (account: IndexedAccount): Promise<void> => {
     try {
+      console.log('[WidgetClient] Switching to account:', account.email);
+      
       const response = await fetch('/api/widget/switch-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -129,31 +160,37 @@ export default function WidgetClient({ initialAccounts, initialError, initialIsS
         return;
       }
 
-      // Notify parent about account switch
-      if (window.parent) {
-        window.parent.postMessage(
-          { type: 'accountSwitched', accountIndex: account.index, accountId: account.id },
-          '*'
-        );
-      }
+      await refetchAccounts();
+      notifyParent('sessionUpdate');
     } catch (error) {
       console.error('[WidgetClient] Error switching account:', error);
     }
   };
 
-  // Show "No active session" only if we have literally no accounts at all
-  if (!state.accounts || state.accounts.length === 0) {
+  // Derive UI state from accounts
+  const displayAccounts = state.accounts;
+  const activeAccount = displayAccounts.length > 0 ? displayAccounts[0] : null;
+  const otherAccounts = displayAccounts.slice(1);
+  const hasAnyActiveSession = displayAccounts.some(a => a.accountState === 'active' || a.accountState === 'can_switch');
+
+  // No accounts at all (no jar, no session) — just show "Add account"
+  if (!activeAccount) {
     return (
-      <div className={`flex items-center justify-center h-full text-gray-600`}>
-        No active session
+      <div className={`w-full max-w-md ${theme.colors.cardBackground} ${theme.styles.cardBorderRadius} ${theme.styles.cardShadow} overflow-hidden`}>
+        <div className="px-6 py-8 text-center flex flex-col items-center gap-4">
+          <div className="text-4xl">🔐</div>
+          <p className={`text-sm ${theme.colors.bodyText}`}>No accounts found</p>
+          <button
+            onClick={handleAddAccount}
+            className={`px-6 py-2.5 ${theme.colors.primaryButtonBg} ${theme.colors.primaryButtonBgHover} ${theme.colors.primaryButtonText} text-sm font-medium ${theme.styles.buttonBorderRadius} transition-colors duration-200`}
+            type="button"
+          >
+            Sign in
+          </button>
+        </div>
       </div>
     );
   }
-
-  // Always show accounts (either active or with "Signed out" badges)
-  const displayAccounts = state.accounts;
-  const activeAccount = displayAccounts[0];
-  const otherAccounts = displayAccounts.slice(1);
 
   return (
     <div className={`w-full max-w-md ${theme.colors.cardBackground} ${theme.styles.cardBorderRadius} ${theme.styles.cardShadow} overflow-hidden`}>
@@ -176,10 +213,10 @@ export default function WidgetClient({ initialAccounts, initialError, initialIsS
           )}
         </div>
 
-        {/* Status Badge */}
-        {state.isSignedOut && (
-          <div className="mb-3 px-3 py-1 bg-yellow-100 border border-yellow-300 rounded-full">
-            <span className="text-xs font-medium text-yellow-800">Signed out</span>
+        {/* Status Badge for needs_reauth */}
+        {activeAccount.accountState === 'needs_reauth' && (
+          <div className="mb-3 px-2 py-1 bg-gray-100 border border-gray-300 rounded-full">
+            <span className="text-xs font-medium text-gray-600">Signed out</span>
           </div>
         )}
 
@@ -193,10 +230,10 @@ export default function WidgetClient({ initialAccounts, initialError, initialIsS
           {activeAccount.email}
         </p>
 
-        {/* Button */}
-        {state.isSignedOut ? (
+        {/* Button: Sign in (needs_reauth) or Manage Account (active) */}
+        {activeAccount.accountState === 'needs_reauth' ? (
           <button
-            onClick={() => handleSignedOutAccountClick(activeAccount)}
+            onClick={() => handleReauthenticateAccountClick(activeAccount)}
             className={`px-6 py-2.5 ${theme.colors.primaryButtonBg} ${theme.colors.primaryButtonBgHover} ${theme.colors.primaryButtonText} text-sm font-medium ${theme.styles.buttonBorderRadius} transition-colors duration-200`}
             type="button"
           >
@@ -205,10 +242,9 @@ export default function WidgetClient({ initialAccounts, initialError, initialIsS
         ) : (
           <button
             onClick={() => {
-              const url = `/u/${activeAccount.index}`;
-              if (typeof window !== 'undefined' && window.top) {
-                window.top.location.href = url;
-              }
+              const idpOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+              const stableIndex = activeAccount.jarIndex ?? activeAccount.index;
+              notifyParent('navigate', { url: `${idpOrigin}/u/${stableIndex}` });
             }}
             className={`px-6 py-2.5 ${theme.colors.primaryButtonBg} ${theme.colors.primaryButtonBgHover} ${theme.colors.primaryButtonText} text-sm font-medium ${theme.styles.buttonBorderRadius} transition-colors duration-200`}
             type="button"
@@ -219,7 +255,7 @@ export default function WidgetClient({ initialAccounts, initialError, initialIsS
       </div>
 
       {/* Other Accounts */}
-      {otherAccounts.length > 0 && !state.isSignedOut && (
+      {otherAccounts.length > 0 && (
         <div className={`border-b ${theme.colors.dividerBorder}`}>
           <div className={`px-6 py-3 flex items-center justify-between ${theme.colors.collapsibleHover} bg-gray-50`}>
             <span className={`text-sm ${theme.colors.bodyText}`}>
@@ -230,12 +266,18 @@ export default function WidgetClient({ initialAccounts, initialError, initialIsS
             {otherAccounts.map((account) => (
               <button
                 key={account.id}
-                onClick={() => handleAccountSwitch(account)}
+                onClick={() => {
+                  if (account.accountState === 'can_switch') {
+                    handleAccountSwitch(account);
+                  } else if (account.accountState === 'needs_reauth') {
+                    handleReauthenticateAccountClick(account);
+                  }
+                }}
                 className={`w-full px-6 py-3.5 flex items-center gap-3 ${theme.colors.hoverBackground} transition-colors duration-150 text-left border-t ${theme.colors.dividerBorder}`}
                 type="button"
               >
                 {/* Avatar */}
-                <div className="relative w-10 h-10 shrink-0">
+                <div className={`relative w-10 h-10 shrink-0 ${account.accountState === 'needs_reauth' ? 'opacity-60' : ''}`}>
                   {account.avatar_url ? (
                     <Image
                       src={account.avatar_url}
@@ -259,58 +301,13 @@ export default function WidgetClient({ initialAccounts, initialError, initialIsS
                     {account.email}
                   </p>
                 </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {/* Other Accounts (Signed Out) */}
-      {otherAccounts.length > 0 && state.isSignedOut && (
-        <div className={`border-b ${theme.colors.dividerBorder}`}>
-          <div className={`px-6 py-3 flex items-center justify-between ${theme.colors.collapsibleHover} bg-gray-50`}>
-            <span className={`text-sm ${theme.colors.bodyText}`}>
-              More accounts ({otherAccounts.length})
-            </span>
-          </div>
-          <div>
-            {otherAccounts.map((account) => (
-              <button
-                key={account.id}
-                onClick={() => handleSignedOutAccountClick(account)}
-                className={`w-full px-6 py-3.5 flex items-center gap-3 ${theme.colors.hoverBackground} transition-colors duration-150 text-left border-t ${theme.colors.dividerBorder}`}
-                type="button"
-              >
-                {/* Avatar */}
-                <div className="relative w-10 h-10 shrink-0 opacity-60">
-                  {account.avatar_url ? (
-                    <Image
-                      src={account.avatar_url}
-                      alt={account.name}
-                      fill
-                      className={`${theme.styles.avatarBorderRadius} object-cover`}
-                    />
-                  ) : (
-                    <div className={`w-10 h-10 ${theme.styles.avatarBorderRadius} bg-linear-to-br ${theme.colors.avatarGradientFrom} ${theme.colors.avatarGradientTo} flex items-center justify-center text-white text-sm font-semibold`}>
-                      {account.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-
-                {/* Account Info */}
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${theme.colors.headingText} truncate`}>
-                    {account.name}
-                  </p>
-                  <p className={`text-xs ${theme.colors.mutedText} truncate`}>
-                    {account.email}
-                  </p>
-                </div>
-
-                {/* Signed Out Badge */}
-                <div className="shrink-0 px-2 py-1 bg-yellow-100 border border-yellow-300 rounded-full">
-                  <span className="text-xs font-medium text-yellow-800">Signed out</span>
-                </div>
+                {/* Status Badge - needs_reauth */}
+                {account.accountState === 'needs_reauth' && (
+                  <div className="shrink-0 px-2 py-1 bg-gray-100 border border-gray-300 rounded-full">
+                    <span className="text-xs font-medium text-gray-600">Signed out</span>
+                  </div>
+                )}
               </button>
             ))}
           </div>
@@ -318,8 +315,8 @@ export default function WidgetClient({ initialAccounts, initialError, initialIsS
       )}
 
       {/* Actions */}
-      <div className="px-6 py-6 space-y-1">
-        {/* Add Account Button */}
+      <div className="px-6 py-4 space-y-1">
+        {/* Add another account */}
         <button
           onClick={handleAddAccount}
           className={`w-full px-4 py-3 flex items-center gap-3 ${theme.colors.hoverBackground} transition-colors duration-150 text-left rounded-lg`}
@@ -332,20 +329,37 @@ export default function WidgetClient({ initialAccounts, initialError, initialIsS
             viewBox="0 0 24 24"
             aria-hidden="true"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
           <span className={`text-sm ${theme.colors.bodyText}`}>
             Add another account
           </span>
         </button>
 
-        {/* Global Logout Button */}
-        {!state.isSignedOut && (
+        {/* Sign out from current account - only when active account has a live session */}
+        {activeAccount.accountState === 'active' && (
+          <button
+            onClick={handleLogoutCurrent}
+            className={`w-full px-4 py-3 flex items-center gap-3 ${theme.colors.signoutHover} transition-colors duration-150 text-left rounded-lg`}
+            type="button"
+          >
+            <svg
+              className={`w-5 h-5 ${theme.colors.signoutIcon} shrink-0`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span className={`text-sm ${theme.colors.signoutText}`}>
+              Sign out of this account
+            </span>
+          </button>
+        )}
+
+        {/* Sign out of ALL accounts - only when any session is active */}
+        {hasAnyActiveSession && (
           <button
             onClick={handleLogoutGlobal}
             className={`w-full px-4 py-3 flex items-center gap-3 ${theme.colors.signoutHover} transition-colors duration-150 text-left rounded-lg`}
@@ -358,12 +372,7 @@ export default function WidgetClient({ initialAccounts, initialError, initialIsS
               viewBox="0 0 24 24"
               aria-hidden="true"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
             <span className={`text-sm ${theme.colors.signoutText}`}>
               Sign out of all accounts

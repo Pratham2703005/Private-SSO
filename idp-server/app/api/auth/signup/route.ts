@@ -46,19 +46,18 @@ export async function POST(request: NextRequest) {
 
     // Stage 11: Check if user already has IDP session
     // (unlikely for signup but possible if multi-account signup flow)
-    const cookies = request.headers.get("cookie") || "";
-    const existingSessionMatch = cookies.match(/(__sso_session|sso_refresh_token)=([^;,]+)/);
+    const existingSessionId = request.cookies.get('__sso_session')?.value;
     let sessionId: string;
 
-    if (existingSessionMatch) {
+    if (existingSessionId) {
       // Session exists - reuse it for multiple account signup
-      sessionId = existingSessionMatch[2].trim();
-      const existingSession = await getSession(sessionId);
+      const existingSession = await getSession(existingSessionId);
       
       if (existingSession) {
         console.log("[Signup] ✅ Reusing existing IDP session for multi-account signup");
-        // Add this account to the session's logons
-        await addAccountToSession(sessionId, account.id);
+        // Add this account to the session's logons and make it active
+        await addAccountToSession(existingSessionId, account.id);
+        sessionId = existingSessionId;
       } else {
         // Session expired - create new one
         console.log("[Signup] Session expired, creating new session");
@@ -134,6 +133,23 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60, // 7 days
+      path: "/",
+    });
+
+    // Store account ID in idp_jar cookie (for widget to remember logged-in accounts)
+    const existingJar = request.cookies.get("idp_jar")?.value || "";
+    const jarIds = existingJar ? existingJar.split(",").filter(Boolean) : [];
+    if (!jarIds.includes(account.id)) {
+      jarIds.push(account.id);
+    }
+    const trimmedJar = jarIds.slice(-10).join(",");
+    response.cookies.set({
+      name: "idp_jar",
+      value: trimmedJar,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 365 * 24 * 60 * 60, // 1 year
       path: "/",
     });
 

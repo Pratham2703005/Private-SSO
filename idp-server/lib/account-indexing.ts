@@ -4,7 +4,7 @@
  * Ensures deterministic, stable ordering across requests
  */
 
-import { getSessionLogons } from './db';
+import { getSessionLogons, getAccountById, supabase } from './db';
 
 export interface IndexedAccount {
   index: number;
@@ -16,6 +16,14 @@ export interface IndexedAccount {
   logged_in_at: string;
   last_active_at: string;
   revoked: boolean;
+  // Stable index from idp_jar cookie (insertion order, never changes).
+  // Used for /u/{jarIndex} URLs. Unlike `index` (session order), this is stable across account switches.
+  jarIndex?: number;
+  // Account state (Google-like):
+  // - active: Currently logged in (in __sso_session with active_account_id = this account)
+  // - can_switch: Has valid session_logon in CURRENT sessionId (one-click switch available)
+  // - needs_reauth: Not in current session / expired / signed out (needs re-login)
+  accountState: 'active' | 'can_switch' | 'needs_reauth';
 }
 
 /**
@@ -95,6 +103,7 @@ export async function getAllAccountsWithIndices(
         logged_in_at: logon.logged_in_at,
         last_active_at: logon.last_active_at,
         revoked: logon.revoked,
+        accountState: 'active' as const, // Default to 'active' - will be overridden by caller if needed
       }));
 
     return activeAccounts;
@@ -115,5 +124,85 @@ export async function getActiveAccountCount(sessionId: string): Promise<number> 
   } catch (error) {
     console.error('[AccountIndexing] Error counting active accounts:', error);
     return 0;
+  }
+}
+
+/**
+ * Get account by combined index (session + jar)
+ * 
+ * Replicates the same indexing logic used by the widget API:
+ * 1. Session accounts first (non-revoked, ordered by logged_in_at ASC)
+ * 2. Jar-only accounts next (accounts in idp_jar cookie but NOT in session)
+ * 
+ * This ensures the index used in /u/{index} URLs matches what the widget shows.
+ */
+export async function getAccountByCombinedIndex(
+  sessionId: string | null,
+  jarCookieValue: string | null,
+  index: number,
+  activeAccountId?: string | null
+): Promise<IndexedAccount | null> {
+  try {
+    const accountsMap = new Map<string, IndexedAccount>();
+
+    // FLOW 1: Session accounts (same order as widget)
+    if (sessionId) {
+      const sessionAccounts = await getAllAccountsWithIndices(sessionId);
+      sessionAccounts.forEach(acc => {
+        const state = acc.id === activeAccountId ? 'active' : 'can_switch';
+        accountsMap.set(acc.id, {
+          ...acc,
+          accountState: state as 'active' | 'can_switch' | 'needs_reauth',
+        });
+      });
+    }
+
+    // FLOW 2: Jar accounts NOT already in session
+    if (jarCookieValue) {
+      const jarAccountIds = jarCookieValue.split(',').filter(Boolean);
+      const jarAccountsToCheck = jarAccountIds.filter(id => !accountsMap.has(id));
+
+      if (jarAccountsToCheck.length > 0) {
+        const response = await supabase
+          .from('user_accounts')
+          .select('id, name, email, avatar_url, is_primary')
+          .in('id', jarAccountsToCheck);
+
+        const accountsData = response.data || [];
+
+        for (const account of accountsData) {
+          if (!accountsMap.has(account.id)) {
+            accountsMap.set(account.id, {
+              index: accountsMap.size,
+              id: account.id,
+              name: account.name,
+              email: account.email,
+              avatar_url: account.avatar_url || undefined,
+              isPrimary: account.is_primary ?? false,
+              logged_in_at: new Date().toISOString(),
+              last_active_at: new Date().toISOString(),
+              revoked: false,
+              accountState: 'needs_reauth',
+            });
+          }
+        }
+      }
+    }
+
+    // Convert map to array and reassign indices
+    const allAccounts = Array.from(accountsMap.values()).map((acc, i) => ({
+      ...acc,
+      index: i,
+    }));
+
+    if (index < 0 || index >= allAccounts.length) {
+      console.log(`[AccountIndexing] Combined index ${index} out of range (total: ${allAccounts.length})`);
+      return null;
+    }
+
+    return allAccounts[index];
+  } catch (error) {
+    console.error('[AccountIndexing] Error in getAccountByCombinedIndex:', error);
+    return null;
   }
 }
