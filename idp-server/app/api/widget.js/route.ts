@@ -59,6 +59,13 @@ export async function GET() {
       return; // Already injected
     }
     
+    // Add prefetch link for the account-switcher page (speeds up iframe loading)
+    const prefetchLink = document.createElement('link');
+    prefetchLink.rel = 'prefetch';
+    prefetchLink.href = WIDGET_URL;
+    prefetchLink.as = 'document';
+    document.head.appendChild(prefetchLink);
+    
     const style = document.createElement('style');
     style.id = '__account_switcher_styles';
     
@@ -210,58 +217,17 @@ export async function GET() {
   });
 
   function openAccountSwitcher() {
-    isPopoverOpen = !isPopoverOpen;
-    
-    if (!iframeModal) {
-      // Create popover container (created once)
-      const popover = document.createElement('div');
-      popover.id = '__account_switcher_popover';
-      popover.className = 'hidden';
-      document.body.appendChild(popover);
-      iframeModal = popover;
-      
-      // Create iframe directly inside popover (don't reposition)
-      if (!iframe) {
-        iframe = document.createElement('iframe');
-        iframe.id = '__account_switcher_iframe';
-        
-        // Build iframe URL with parentOrigin
-        const parentOriginParam = encodeURIComponent(getParentOrigin() || 'http://localhost:3003');
-        iframe.src = WIDGET_URL + '?parentOrigin=' + parentOriginParam;
-        
-        iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-top-navigation');
-        iframe.setAttribute('allow', 'cross-origin-isolated');
-        iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
-        
-        // Handle iframe load/error events
-        iframe.addEventListener('load', function() {
-          console.log('[AccountSwitcher] Iframe loaded successfully');
-        });
-        
-        iframe.addEventListener('error', function() {
-          console.error('[AccountSwitcher] Failed to load iframe from:', WIDGET_URL);
-          popover.innerHTML = '<div style="padding: 20px; text-align: center; color: #666; font-size: 14px;">Failed to load account switcher. Please refresh.</div>';
-        });
-        
-        popover.appendChild(iframe);
-        console.log('[AccountSwitcher] Iframe created with src:', WIDGET_URL);
+    // Ensure iframe exists before trying to open
+    if (!iframeModal || !iframe) {
+      preloadIframe();
+      if (!iframeModal) {
+        console.error('[AccountSwitcher] Failed to create iframe');
+        return;
       }
-
-      // Close popover when clicking outside
-      document.addEventListener('mousedown', function(e) {
-        if (isPopoverOpen && iframeModal && !iframeModal.contains(e.target) && buttonContainer && !buttonContainer.contains(e.target)) {
-          closeAccountSwitcher();
-        }
-      });
-
-      // Close on Escape key
-      document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && isPopoverOpen) {
-          closeAccountSwitcher();
-        }
-      });
     }
 
+    isPopoverOpen = !isPopoverOpen;
+    
     if (isPopoverOpen) {
       iframeModal.classList.remove('hidden');
       iframeModal.classList.add('visible');
@@ -293,16 +259,75 @@ export async function GET() {
     }
   }
 
+  // Pre-create and load iframe hidden (speeds up opening on first click)
+  // Runs during initialization so iframe loads in background
+  function preloadIframe() {
+    if (iframeModal || iframe) {
+      return; // Already created
+    }
+
+    console.log('[AccountSwitcher] Pre-creating iframe for faster loading...');
+
+    // Create popover container (hidden initially)
+    const popover = document.createElement('div');
+    popover.id = '__account_switcher_popover';
+    popover.className = 'hidden';
+    document.body.appendChild(popover);
+    iframeModal = popover;
+
+    // Create iframe
+    iframe = document.createElement('iframe');
+    iframe.id = '__account_switcher_iframe';
+
+    // Build iframe URL with parentOrigin
+    const parentOriginParam = encodeURIComponent(getParentOrigin() || 'http://localhost:3003');
+    iframe.src = WIDGET_URL + '?parentOrigin=' + parentOriginParam;
+
+    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-top-navigation');
+    iframe.setAttribute('allow', 'cross-origin-isolated');
+    iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+
+    // Handle iframe load/error events
+    iframe.addEventListener('load', function() {
+      console.log('[AccountSwitcher] Iframe loaded successfully');
+    });
+
+    iframe.addEventListener('error', function() {
+      console.error('[AccountSwitcher] Failed to load iframe from:', WIDGET_URL);
+      popover.innerHTML = '<div style="padding: 20px; text-align: center; color: #666; font-size: 14px;">Failed to load account switcher. Please refresh.</div>';
+    });
+
+    popover.appendChild(iframe);
+    console.log('[AccountSwitcher] Iframe pre-created with src:', WIDGET_URL);
+  }
+
+  // Set up close handlers (click outside, Escape key)
+  function setupCloseHandlers() {
+    // Close popover when clicking outside
+    document.addEventListener('mousedown', function(e) {
+      if (isPopoverOpen && iframeModal && !iframeModal.contains(e.target) && buttonContainer && !buttonContainer.contains(e.target)) {
+        closeAccountSwitcher();
+      }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && isPopoverOpen) {
+        closeAccountSwitcher();
+      }
+    });
+  }
+
   // Reposition popover when page scrolls/resizes (keep it anchored to button)
   function repositionPopover() {
     if (!isPopoverOpen || !isIntegratedMode || !iframeModal || !button) {
       return;
     }
-    
+
     const buttonRect = button.getBoundingClientRect();
     const popoverTop = buttonRect.bottom + 12; // 12px gap below button
     const popoverRight = window.innerWidth - buttonRect.right; // Align right edge with button
-    
+
     iframeModal.style.top = popoverTop + 'px';
     iframeModal.style.right = popoverRight + 'px';
   }
@@ -421,6 +446,12 @@ export async function GET() {
     // Create button and container
     createButton();
     
+    // Pre-create iframe hidden (loads in background for instant opening on click)
+    preloadIframe();
+    
+    // Set up close handlers (click outside, Escape key)
+    setupCloseHandlers();
+    
     // In integrated mode: reposition popover on scroll/resize to keep it anchored to button
     if (isIntegratedMode) {
       window.addEventListener('scroll', repositionPopover, true); // Use capture phase
@@ -431,6 +462,7 @@ export async function GET() {
     console.log('[AccountSwitcher] Mode:', isIntegratedMode ? 'INTEGRATED' : 'FLOATING');
     console.log('[AccountSwitcher] IDP Origin:', IDP_ORIGIN);
     console.log('[AccountSwitcher] Widget URL:', WIDGET_URL);
+    console.log('[AccountSwitcher] Iframe pre-created and loading in background');
     console.log('[AccountSwitcher] API available at window.__accountSwitcher');
   }
 
