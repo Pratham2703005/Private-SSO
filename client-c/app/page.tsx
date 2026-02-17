@@ -241,43 +241,80 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <p className="text-gray-600">Loading...</p>
+      <div className="flex flex-col min-h-screen bg-gray-100">
+        {/* Navbar */}
+        <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-gray-900">Client-C</h1>
+          <div
+            id="__account_switcher_mount_point"
+            className="shrink-0"
+            suppressHydrationWarning
+          ></div>
+        </nav>
+        {/* Content */}
+        <div className="flex items-center justify-center flex-1">
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
     );
   }
 
   if (!session) {
-    return (      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="bg-white rounded-lg shadow-md p-8 text-center max-w-md">
-          <p className="text-gray-600 mb-4 text-lg">Not logged in</p>
-          <p className="text-sm text-gray-400">👆 Click the widget button in the top-right to sign in</p>
+    return (      
+      <div className="flex flex-col min-h-screen bg-gray-900">
+        {/* Navbar */}
+        <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-gray-900">Client-C</h1>
+          <div
+            id="__account_switcher_mount_point"
+            className="shrink-0"
+            suppressHydrationWarning
+          ></div>
+        </nav>
+        {/* Content */}
+        <div className="flex items-center justify-center flex-1">
+          <div className="bg-white rounded-lg shadow-md p-8 text-center max-w-md">
+            <p className="text-gray-600 mb-4 text-lg">Not logged in</p>
+            <p className="text-sm text-gray-400">👆 Click the widget button in the navbar to sign in</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white rounded-lg shadow-md p-8 text-center max-w-md">
-        <h1 className="text-2xl font-bold mb-4">✅ Client-C SSO Login Success!</h1>
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
-          <p className="text-gray-700">
-            <strong>Name:</strong> {session.userName}
-          </p>
-          <p className="text-gray-700">
-            <strong>Email:</strong> {session.email}
-          </p>
-          <p className="text-gray-600 text-sm">
-            <strong>User ID:</strong> {session.userId.substring(0, 12)}...
-          </p>
-          <p className="text-gray-600 text-sm mt-2">
-            Logged in at {new Date(session.issuedAt).toLocaleString()}
+    <div className="flex flex-col min-h-screen bg-gray-100">
+      {/* Navbar */}
+      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-gray-900">Client-C</h1>
+        <div
+          id="__account_switcher_mount_point"
+          className="shrink-0"
+          suppressHydrationWarning
+        ></div>
+      </nav>
+      {/* Content */}
+      <div className="flex items-center justify-center flex-1">
+        <div className="bg-white rounded-lg shadow-md p-8 text-center max-w-md">
+          <h1 className="text-2xl font-bold mb-4">✅ Client-C SSO Login Success!</h1>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
+            <p className="text-gray-700">
+              <strong>Name:</strong> {session.userName}
+            </p>
+            <p className="text-gray-700">
+              <strong>Email:</strong> {session.email}
+            </p>
+            <p className="text-gray-600 text-sm">
+              <strong>User ID:</strong> {session.userId.substring(0, 12)}...
+            </p>
+            <p className="text-gray-600 text-sm mt-2">
+              Logged in at {new Date(session.issuedAt).toLocaleString()}
+            </p>
+          </div>
+          <p className="text-sm text-gray-500">
+            Click the widget button to switch accounts or logout
           </p>
         </div>
-        <p className="text-sm text-gray-500">
-          Click the widget button to switch accounts or logout
-        </p>
       </div>
     </div>
   );

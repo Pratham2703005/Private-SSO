@@ -27,6 +27,10 @@ export async function GET() {
   let isPopoverOpen = false;
   let button = null;
   let buttonContainer = null;
+  
+  // Integrated vs Floating mode detection (once at init)
+  let isIntegratedMode = false;
+  let mountPoint = null;
 
   // Detect parent origin from referrer or current location
   function getParentOrigin() {
@@ -34,6 +38,18 @@ export async function GET() {
       return window.location.origin;
     } catch (e) {
       return null;
+    }
+  }
+
+  // Detect mount point ONCE during initialization
+  function detectMountPoint() {
+    mountPoint = document.getElementById('__account_switcher_mount_point');
+    if (mountPoint) {
+      isIntegratedMode = true;
+      console.log('[AccountSwitcher] Mount point detected - using integrated mode');
+    } else {
+      isIntegratedMode = false;
+      console.log('[AccountSwitcher] No mount point - using floating mode');
     }
   }
 
@@ -45,6 +61,39 @@ export async function GET() {
     
     const style = document.createElement('style');
     style.id = '__account_switcher_styles';
+    
+    // Generate CSS based on mode (integrated vs floating)
+    const buttonSize = isIntegratedMode ? '40px' : '44px';
+    const buttonContainerCSS = isIntegratedMode
+      ? \`
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        z-index: auto;
+      \`
+      : \`
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10001;
+      \`;
+    
+    const popoverCSS = isIntegratedMode
+      ? \`
+        position: fixed;
+        width: 420px;
+        max-width: 95vw;
+        z-index: 50000;
+      \`
+      : \`
+        position: fixed;
+        top: 78px;
+        right: 20px;
+        width: 420px;
+        z-index: 10000;
+      \`;
+    
     style.textContent = \`
       #__account_switcher_button_container,
       #__account_switcher_popover,
@@ -53,14 +102,10 @@ export async function GET() {
       }
       
       #__account_switcher_popover {
-        position: fixed;
-        top: 78px;
-        right: 20px;
-        width: 420px;
+        \${popoverCSS}
         background: white;
         border-radius: 12px;
         box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
-        z-index: 10000;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         padding: 0;
         margin: 0;
@@ -93,10 +138,12 @@ export async function GET() {
       }
       
       #__account_switcher_button_container {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 10001;
+        \${buttonContainerCSS}
+      }
+      
+      #__account_switcher_button {
+        width: \${buttonSize};
+        height: \${buttonSize};
       }
     \`;
     document.head.appendChild(style);
@@ -218,6 +265,18 @@ export async function GET() {
     if (isPopoverOpen) {
       iframeModal.classList.remove('hidden');
       iframeModal.classList.add('visible');
+      
+      // In integrated mode, position popover below the button
+      if (isIntegratedMode && button) {
+        const buttonRect = button.getBoundingClientRect();
+        const popoverTop = buttonRect.bottom + 12; // 12px gap below button
+        const popoverRight = window.innerWidth - buttonRect.right; // Align right edge with button
+        
+        iframeModal.style.top = popoverTop + 'px';
+        iframeModal.style.right = popoverRight + 'px';
+        console.log('[AccountSwitcher] Popover positioned at top:', popoverTop, 'right:', popoverRight);
+      }
+      
       console.log('[AccountSwitcher] Popover opened');
     } else {
       iframeModal.classList.add('hidden');
@@ -232,6 +291,20 @@ export async function GET() {
       iframeModal.classList.add('hidden');
       iframeModal.classList.remove('visible');
     }
+  }
+
+  // Reposition popover when page scrolls/resizes (keep it anchored to button)
+  function repositionPopover() {
+    if (!isPopoverOpen || !isIntegratedMode || !iframeModal || !button) {
+      return;
+    }
+    
+    const buttonRect = button.getBoundingClientRect();
+    const popoverTop = buttonRect.bottom + 12; // 12px gap below button
+    const popoverRight = window.innerWidth - buttonRect.right; // Align right edge with button
+    
+    iframeModal.style.top = popoverTop + 'px';
+    iframeModal.style.right = popoverRight + 'px';
   }
 
   function triggerSilentLogin() {
@@ -262,7 +335,7 @@ export async function GET() {
       });
   }
 
-  // Create floating avatar button (Google-style) and button container
+  // Create avatar button - appended to mount point (integrated) or body (floating)
   function createButton() {
     const container = document.createElement('div');
     container.id = '__account_switcher_button_container';
@@ -271,14 +344,17 @@ export async function GET() {
     btn.id = '__account_switcher_button';
     btn.setAttribute('aria-label', 'Account Switcher');
     btn.title = 'Account Switcher';
+    
+    const buttonSize = isIntegratedMode ? '40px' : '44px';
+    
     btn.style.cssText = \`
-      width: 48px;
-      height: 48px;
+      width: \${buttonSize};
+      height: \${buttonSize};
       border-radius: 50%;
       border: 2px solid #dadce0;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       cursor: pointer;
-      font-size: 24px;
+      font-size: 20px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -318,7 +394,15 @@ export async function GET() {
     btn.addEventListener('click', openAccountSwitcher);
 
     container.appendChild(btn);
-    document.body.appendChild(container);
+    
+    // Append to mount point (integrated) or body (floating)
+    if (isIntegratedMode && mountPoint) {
+      mountPoint.appendChild(container);
+      console.log('[AccountSwitcher] Button appended to mount point');
+    } else {
+      document.body.appendChild(container);
+      console.log('[AccountSwitcher] Button appended to body (floating)');
+    }
     
     button = btn;
     buttonContainer = container;
@@ -326,15 +410,25 @@ export async function GET() {
     return { button: btn, buttonContainer: container };
   }
 
-  // Initialize widget on page load
+  // Initialize widget on page load (detect mode, inject CSS, create button)
   function initializeWidget() {
-    // Inject consistent CSS first
+    // Detect mount point FIRST (determines mode)
+    detectMountPoint();
+    
+    // Inject CSS appropriate for the detected mode
     injectStyles();
     
     // Create button and container
     createButton();
     
+    // In integrated mode: reposition popover on scroll/resize to keep it anchored to button
+    if (isIntegratedMode) {
+      window.addEventListener('scroll', repositionPopover, true); // Use capture phase
+      window.addEventListener('resize', repositionPopover);
+    }
+    
     console.log('[AccountSwitcher] Widget loaded successfully');
+    console.log('[AccountSwitcher] Mode:', isIntegratedMode ? 'INTEGRATED' : 'FLOATING');
     console.log('[AccountSwitcher] IDP Origin:', IDP_ORIGIN);
     console.log('[AccountSwitcher] Widget URL:', WIDGET_URL);
     console.log('[AccountSwitcher] API available at window.__accountSwitcher');

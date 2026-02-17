@@ -28,7 +28,7 @@ export default function RootLayout({
       <head>
         <Script
           src="http://localhost:3000/api/widget.js"
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
         />
         {/* Load RobotToast globally for toast notifications */}
         <Script

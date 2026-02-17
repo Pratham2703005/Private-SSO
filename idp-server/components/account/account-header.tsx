@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { WidgetMessageHandler } from "./widget-message-handler";
 
 interface AccountHeaderProps {
   showHelp?: boolean;
@@ -8,17 +9,7 @@ interface AccountHeaderProps {
 
 export function AccountHeader({
   showHelp = true,
-  showSignOut = true,
 }: AccountHeaderProps) {
-  const handleLogout = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-    });
-    window.location.href = "/";
-  };
-
   return (
     <header className="bg-transparent px-6 py-4 flex items-center justify-between">
       <h1 className="text-2xl text-gray-900"><span className="font-semibold">Social</span> Account</h1>
@@ -34,16 +25,14 @@ export function AccountHeader({
           </Link>
         )}
 
-        {showSignOut && (
-          <form onSubmit={handleLogout}>
-            <button
-              type="submit"
-              className="text-gray-700 hover:text-gray-900 text-sm font-medium px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              Sign out
-            </button>
-          </form>   
-        )}
+        {/* Widget Mount Point - widget.js will inject button here */}
+        <div
+          id="__account_switcher_mount_point"
+          className="shrink-0"
+          suppressHydrationWarning
+        ></div>
+
+        <WidgetMessageHandler/>
       </div>
     </header>
   );
