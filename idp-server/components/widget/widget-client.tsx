@@ -8,6 +8,7 @@ import { getThemeClasses } from '@/lib/theme-config';
 interface WidgetClientState {
   accounts: IndexedAccount[];
   error?: string;
+  switching: boolean;
 }
 
 interface WidgetClientProps {
@@ -23,6 +24,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
   const [state, setState] = useState<WidgetClientState>({
     accounts: initialAccounts,
     error: initialError,
+    switching: false,
   });
   
   // Get parentOrigin from URL params on mount
@@ -47,10 +49,11 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
       });
       if (!response.ok) return;
       const data = await response.json();
-      setState({
+      setState(prev => ({
+        ...prev,
         accounts: data.accounts || [],
         error: undefined,
-      });
+      }));
     } catch {
       // Silent fail
     }
@@ -138,15 +141,41 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  // Handle clicking a needs_reauth account (re-authenticate) — force login page
+  // Handle clicking a needs_reauth account (re-authenticate)
+  // Widget owns the reauth flow:
+  // - On IDP domain: construct /login URL directly and navigate
+  // - On client apps: send startAuth so client can initiate PKCE flow
   const handleReauthenticateAccountClick = (account?: IndexedAccount): void => {
-    notifyParent('startAuth', { email: account?.email, prompt: 'login' });
+    const idpOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+    const parentOrigin = parentOriginRef.current;
+    const isOnIdp = parentOrigin === idpOrigin;
+
+    if (isOnIdp) {
+      // On IDP domain: navigate directly to login with hint + return_to
+      const loginUrl = new URL('/login', idpOrigin);
+      if (account?.email) {
+        loginUrl.searchParams.set('login_hint', account.email);
+      }
+      // return_to: send user back to the account's /u/{jarIndex} page after login
+      const jarIndex = account?.jarIndex ?? account?.index;
+      if (jarIndex !== undefined) {
+        loginUrl.searchParams.set('return_to', `/u/${jarIndex}`);
+      }
+      notifyParent('navigate', { url: loginUrl.toString() });
+    } else {
+      // On client app: delegate to client's OAuth/PKCE flow
+      notifyParent('startAuth', { email: account?.email, prompt: 'login' });
+    }
   };
 
   // Handle account switch (can_switch → active)
   const handleAccountSwitch = async (account: IndexedAccount): Promise<void> => {
     try {
       console.log('[WidgetClient] Switching to account:', account.email);
+      
+      // Show loading state in widget + notify parent
+      setState(prev => ({ ...prev, switching: true }));
+      notifyParent('ACCOUNT_SWITCHING');
       
       const response = await fetch('/api/widget/switch-account', {
         method: 'POST',
@@ -157,13 +186,36 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
 
       if (!response.ok) {
         console.error('[WidgetClient] Failed to switch account:', response.status);
+        setState(prev => ({ ...prev, switching: false }));
         return;
       }
 
-      await refetchAccounts();
-      notifyParent('sessionUpdate');
+      const data = await response.json();
+      const jarIndex = account.jarIndex ?? account.index;
+
+      const idpOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+      const isOnIdp = parentOriginRef.current === idpOrigin;
+
+      // On IDP: don't refetch/clear switching — page will fully navigate away via ACCOUNT_SWITCHED
+      // On clients: refetch widget state and clear loading
+      if (!isOnIdp) {
+        await refetchAccounts();
+        setState(prev => ({ ...prev, switching: false }));
+      }
+
+      // Always send ACCOUNT_SWITCHED (widget.js closes popover; on IDP also navigates to /u/{jarIndex})
+      notifyParent('ACCOUNT_SWITCHED', {
+        activeAccountId: data.activeId,
+        jarIndex,
+      });
+
+      // Only send sessionUpdate on client apps — IDP page navigation already handles full refresh
+      if (!isOnIdp) {
+        notifyParent('sessionUpdate');
+      }
     } catch (error) {
       console.error('[WidgetClient] Error switching account:', error);
+      setState(prev => ({ ...prev, switching: false }));
     }
   };
 
@@ -193,7 +245,17 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
   }
 
   return (
-    <div className={`w-full max-w-md ${theme.colors.cardBackground} ${theme.styles.cardBorderRadius} ${theme.styles.cardShadow} overflow-hidden`}>
+    <div className={`w-full max-w-md ${theme.colors.cardBackground} ${theme.styles.cardBorderRadius} ${theme.styles.cardShadow} overflow-hidden relative`}>
+      {/* Switching overlay */}
+      {state.switching && (
+        <div className="absolute inset-0 bg-white/70 z-50 flex items-center justify-center backdrop-blur-[1px]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-3 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+            <p className="text-sm text-gray-500 font-medium">Switching account…</p>
+          </div>
+        </div>
+      )}
+
       {/* Active Account Card */}
       <div className={`flex flex-col items-center justify-center py-8 px-6 border-b ${theme.colors.dividerBorder}`}>
         {/* Avatar */}

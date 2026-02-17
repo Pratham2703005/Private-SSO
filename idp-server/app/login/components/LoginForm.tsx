@@ -108,8 +108,8 @@ export default function LoginForm() {
         });
         window.location.href = authorizeUrl.toString();
       } else {
-        // Direct IDP login - redirect to dashboard
-        router.push("/dashboard");
+        // Direct IDP login - redirect to account page
+        router.push("/u");
       }
     } catch {
       setError("An unexpected error occurred. Please try again.");
@@ -178,7 +178,17 @@ export default function LoginForm() {
         <div className="mt-6 text-center">
           <p className="text-gray-600 text-sm">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-blue-600 hover:text-blue-700 font-medium">
+            <Link
+              href={`/signup${(() => {
+                const params = new URLSearchParams();
+                // Forward all params including login_hint — signup form won't auto-fill it,
+                // but keeps it so Signup→Login round-trip preserves the email hint
+                searchParams.forEach((value, key) => params.set(key, value));
+                const qs = params.toString();
+                return qs ? `?${qs}` : '';
+              })()}`}
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
               Sign Up
             </Link>
           </p>

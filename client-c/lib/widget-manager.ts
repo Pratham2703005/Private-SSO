@@ -140,10 +140,10 @@ class WidgetManager {
         return;
       }
 
-      // 2. Validate message structure
+      // 2. Validate message structure (type is required, but nonce/requestId are optional)
       const msg = event.data as WidgetMessage;
-      if (!msg.type || !msg.nonce || !msg.requestId) {
-        console.warn("[Client] Invalid message structure:", event.data);
+      if (!msg.type) {
+        console.warn("[Client] Invalid message structure (missing type):", event.data);
         return;
       }
 
@@ -162,11 +162,13 @@ class WidgetManager {
       // 4. Route to appropriate handler
       this.handleWidgetMessage(msg);
 
-      // 5. Check if this was awaited request
-      const handler = this.pendingRequests.get(msg.requestId);
-      if (handler) {
-        handler(msg);
-        this.pendingRequests.delete(msg.requestId);
+      // 5. Check if this was a awaited request (only if requestId exists)
+      if (msg.requestId) {
+        const handler = this.pendingRequests.get(msg.requestId);
+        if (handler) {
+          handler(msg);
+          this.pendingRequests.delete(msg.requestId);
+        }
       }
     });
   }
@@ -185,6 +187,7 @@ class WidgetManager {
       case "ACCOUNT_SWITCHED":
         console.log("[Client] Account switched:", msg.payload?.activeAccountId);
         // Account switched, refresh user data from client backend
+        // Don't navigate away - stay on the client app
         void this.fetchAndUpdateUser();
         break;
 

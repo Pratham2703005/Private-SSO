@@ -72,8 +72,22 @@ export default function SignupForm() {
       }
 
       // Success - determine where to redirect
+      const returnTo = searchParams.get("return_to");
       const oauthParams = getOAuthParams();
-      if (Object.keys(oauthParams).length > 0) {
+
+      if (returnTo) {
+        try {
+          const returnUrl = new URL(returnTo, window.location.origin);
+          if (returnUrl.origin === window.location.origin) {
+            window.location.href = returnTo;
+          } else {
+            const url = new URL("/api/auth/start", returnTo);
+            window.location.href = url.toString();
+          }
+        } catch {
+          window.location.href = returnTo;
+        }
+      } else if (Object.keys(oauthParams).length > 0) {
         // OAuth2 flow - redirect back to authorize endpoint
         const authorizeUrl = new URL("/oauth/authorize", window.location.origin);
         Object.entries(oauthParams).forEach(([key, value]) => {
@@ -81,8 +95,8 @@ export default function SignupForm() {
         });
         window.location.href = authorizeUrl.toString();
       } else {
-        // Direct IDP signup - redirect to dashboard
-        router.push("/dashboard");
+        // Direct IDP signup - redirect to account page
+        router.push("/u");
       }
     } catch {
       setError("An unexpected error occurred. Please try again.");
@@ -169,7 +183,15 @@ export default function SignupForm() {
         <div className="mt-6 text-center">
           <p className="text-gray-600 text-sm">
             Already have an account?{" "}
-            <Link href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+            <Link
+              href={`/login${(() => {
+                const params = new URLSearchParams();
+                searchParams.forEach((value, key) => params.set(key, value));
+                const qs = params.toString();
+                return qs ? `?${qs}` : '';
+              })()}`}
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
               Log In
             </Link>
           </p>

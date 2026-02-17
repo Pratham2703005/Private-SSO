@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { getSession, getUserById, getAccountById } from "@/lib/db";
+import { getSession, getUserById, getAccountById, switchActiveAccount } from "@/lib/db";
 import { getAllAccountsWithIndices } from "@/lib/account-indexing";
 import Link from "next/link";
 import { AccountLayout } from "@/components/account";
@@ -16,6 +16,7 @@ import {
 import { QUICK_ACTIONS } from "@/constants/navigation";
 import { User } from "@/types/account";
 import { notFound } from "next/navigation";
+import { ReauthWall } from "@/components/account/reauth-wall";
 
 export const metadata = {
   title: "My Accounts SSO",
@@ -34,9 +35,22 @@ export default async function HomePage({ params }: PageProps) {
 
   let user: User | null = null;
   let accountId: string | null = null;
+  let isNeedsReauth = false;
 
   // Resolve account from reg_userid (index or account ID)
   const isIndex = /^\d+$/.test(reg_userid);
+
+  // Get session data + session account IDs for reauth detection
+  let session: Awaited<ReturnType<typeof getSession>> = null;
+  let sessionAccountIds: Set<string> = new Set();
+
+  if (sessionId) {
+    session = await getSession(sessionId);
+    if (session) {
+      const sessionAccounts = await getAllAccountsWithIndices(sessionId);
+      sessionAccountIds = new Set(sessionAccounts.map(a => a.id));
+    }
+  }
 
   if (isIndex) {
     const indexNum = parseInt(reg_userid, 10);
@@ -47,15 +61,9 @@ export default async function HomePage({ params }: PageProps) {
     const combinedIds = [...jarAccountIds];
 
     // Append session accounts not already in jar
-    if (sessionId) {
-      const session = await getSession(sessionId);
-      if (session) {
-        const sessionAccounts = await getAllAccountsWithIndices(sessionId);
-        for (const acc of sessionAccounts) {
-          if (!combinedIds.includes(acc.id)) {
-            combinedIds.push(acc.id);
-          }
-        }
+    for (const id of sessionAccountIds) {
+      if (!combinedIds.includes(id)) {
+        combinedIds.push(id);
       }
     }
 
@@ -68,12 +76,22 @@ export default async function HomePage({ params }: PageProps) {
     if (accountData?.user_id) {
       user = await getUserById(accountData.user_id);
     }
+
+    // Check if this account needs reauth (in jar but NOT in active session logons)
+    if (accountId && !sessionAccountIds.has(accountId)) {
+      isNeedsReauth = true;
+    }
   } else {
     // Direct account ID
     accountId = reg_userid;
     const accountData = await getAccountById(reg_userid);
     if (accountData?.user_id) {
       user = await getUserById(accountData.user_id);
+    }
+
+    // Check if this account needs reauth
+    if (accountId && !sessionAccountIds.has(accountId)) {
+      isNeedsReauth = true;
     }
   }
 
@@ -89,6 +107,32 @@ export default async function HomePage({ params }: PageProps) {
         />
       </div>
     );
+  }
+
+  // Account exists in jar but session expired — show reauth wall (Google-style)
+  if (isNeedsReauth) {
+    // Mask email: show first 2 chars + ***@domain
+    const emailParts = user.email.split("@");
+    const maskedEmail =
+      emailParts[0].substring(0, 2) + "***@" + (emailParts[1] || "");
+
+    return (
+      <ReauthWall
+        name={user.name}
+        maskedEmail={maskedEmail}
+        email={user.email}
+        initial={user.name?.charAt(0)?.toUpperCase() || "?"}
+        returnTo={`/u/${reg_userid}`}
+      />
+    );
+  }
+
+  // URL → Active Account Sync:
+  // If we resolved a valid, active (non-reauth) account and it differs from the
+  // session's current active_account_id, switch the session to match the URL.
+  // This keeps URL jar index and active session account always in sync.
+  if (accountId && session && session.active_account_id !== accountId) {
+    await switchActiveAccount(sessionId!, accountId);
   }
 
   // Logged in - show account dashboard (Google-style)

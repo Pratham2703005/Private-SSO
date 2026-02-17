@@ -14,6 +14,7 @@ export interface SessionData {
 export default function Home() {
   const [session, setSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [switching, setSwitching] = useState(false);
   const toastShownRef = useRef(false);
 
   // Fetch session from /api/me (server-side validation)
@@ -155,6 +156,7 @@ export default function Home() {
       // Handle global logout from widget
       if (event.data?.type === 'globalLogout') {
         setSession(null);
+        setSwitching(false);
         toastShownRef.current = false;
         
         // Notify widget iframe to refetch its state
@@ -170,19 +172,29 @@ export default function Home() {
       // Handle logout event from widget
       if (event.data?.type === 'logout') {
         setSession(null);
+        setSwitching(false);
         toastShownRef.current = false;
         return;
       }
 
       // Handle widget close - re-validate session
       if (event.data?.type === 'widgetClosed') {
+        setSwitching(false);
         fetchSession(true);
+        return;
+      }
+
+      // Handle account switching started (loading state)
+      if (event.data?.type === 'ACCOUNT_SWITCHING') {
+        console.log('[Home] Account switching started, showing loading state...');
+        setSwitching(true);
         return;
       }
 
       // Handle session update from widget (any account switch or auth change)
       if (event.data?.type === 'sessionUpdate') {
         console.log('[Home] Received session update from widget, refreshing...');
+        setSwitching(false);
         fetchSession();
         return;
       }
@@ -294,7 +306,16 @@ export default function Home() {
         ></div>
       </nav>
       {/* Content */}
-      <div className="flex items-center justify-center flex-1">
+      <div className="flex items-center justify-center flex-1 relative">
+        {/* Switching account overlay */}
+        {switching && (
+          <div className="absolute inset-0 bg-gray-100/80 z-40 flex items-center justify-center backdrop-blur-[1px]">
+            <div className="flex flex-col items-center gap-3 bg-white rounded-xl shadow-lg px-8 py-6">
+              <div className="w-8 h-8 border-[3px] border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+              <p className="text-sm text-gray-600 font-medium">Switching account…</p>
+            </div>
+          </div>
+        )}
         <div className="bg-white rounded-lg shadow-md p-8 text-center max-w-md">
           <h1 className="text-2xl font-bold mb-4">✅ Client-C SSO Login Success!</h1>
           <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">

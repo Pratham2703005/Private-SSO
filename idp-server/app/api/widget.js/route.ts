@@ -170,10 +170,27 @@ export async function GET() {
       return;
     }
 
-    // Handle: accountSwitched (trigger silent login on client)
-    if (event.data.type === 'accountSwitched') {
-      console.log('[AccountSwitcher] Account switched, triggering silent login');
-      triggerSilentLogin();
+    // Handle: ACCOUNT_SWITCHED
+    if (event.data.type === 'ACCOUNT_SWITCHED') {
+      console.log('[AccountSwitcher] Account switched:', event.data.jarIndex !== undefined ? 'jar index ' + event.data.jarIndex : 'no jar index');
+      
+      // Only handle redirects if we're on the IDP domain
+      // On client apps, the client's widget-manager handles ACCOUNT_SWITCHED
+      const isOnIdpDomain = window.location.origin === IDP_ORIGIN;
+      
+      if (isOnIdpDomain && event.data.jarIndex !== undefined) {
+        // On IDP page: redirect to the account's jar index page
+        console.log('[AccountSwitcher] On IDP domain, navigating to account page:', IDP_ORIGIN + '/u/' + event.data.jarIndex);
+        setTimeout(() => {
+          window.location.href = IDP_ORIGIN + '/u/' + event.data.jarIndex;
+        }, 100);
+      } else if (isOnIdpDomain && !event.data.jarIndex) {
+        // On IDP page but no jar index: trigger silent login
+        triggerSilentLogin();
+      } else {
+        // On client app: let client's widget-manager handle the refresh
+        console.log('[AccountSwitcher] On client domain, delegating to client widget-manager');
+      }
       closeAccountSwitcher();
       return;
     }
