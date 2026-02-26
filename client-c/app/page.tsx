@@ -1,7 +1,7 @@
 'use client';
 
-import { Toaster } from '@/components/Toaster';
 import { useEffect, useState, useRef } from 'react';
+import { toast } from 'robot-toast';
 
 export interface SessionData {
   sessionId: string;
@@ -15,7 +15,6 @@ export default function Home() {
   const [session, setSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
-  const toastShownRef = useRef(false);
 
   // Fetch session from /api/me (server-side validation)
   const fetchSession = (silent = false) => {
@@ -125,18 +124,18 @@ export default function Home() {
 
     if (!session) {
       // User is not logged in
-      Toaster({
-        toastShownRef,
-        message: `You have not logged in`,
-        robotVariant: 'think.svg'
-      });
+      toast.error({
+        message: 'You have not logged in',
+        robotVariant: 'angry',
+        theme: 'dark'
+      })
     } else {
       // User is logged in
-      Toaster({
-        toastShownRef,
+      toast.success({
         message: `Welcome back, ${session.userName}!`,
-        robotVariant: 'wave.svg',
-      });
+        robotVariant: 'wave',
+        theme: 'dark'
+      })
     }
   }, [loading, session]);
 
@@ -157,7 +156,6 @@ export default function Home() {
       if (event.data?.type === 'globalLogout') {
         setSession(null);
         setSwitching(false);
-        toastShownRef.current = false;
         
         // Notify widget iframe to refetch its state
         if (widgetContentWindowRef.current) {
@@ -173,7 +171,6 @@ export default function Home() {
       if (event.data?.type === 'logout') {
         setSession(null);
         setSwitching(false);
-        toastShownRef.current = false;
         return;
       }
 

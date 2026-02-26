@@ -30,18 +30,6 @@ export default function RootLayout({
           src="http://localhost:3000/api/widget.js"
           strategy="afterInteractive"
         />
-        {/* Load RobotToast globally for toast notifications */}
-        <Script
-          src="http://localhost:3000/api/robot-toast.js"
-          strategy="beforeInteractive"
-          async
-        />
-        {/* Load RobotToast Utils for easy access to toast functions */}
-        <Script
-          src="http://localhost:3000/api/robot-toast-utils.js"
-          strategy="beforeInteractive"
-          async
-        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
