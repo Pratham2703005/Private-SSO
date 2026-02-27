@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SessionLogonWithAccount } from "@/types";
 import {
   getSession,
   getActiveSessionLogons,
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
     const userId = session.user_id;
 
     // Get active accounts before logout
-    const logons = await getActiveSessionLogons(sessionId);
+    const logons = (await getActiveSessionLogons(sessionId)) as unknown as SessionLogonWithAccount[];
     const accountToLogout = accountIdToLogout || session.active_account_id;
 
     if (!accountToLogout) {
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify account exists in session
-    const logonToRevoke = logons.find((l: any) => l.account_id === accountToLogout);
+    const logonToRevoke = logons.find((l) => l.account_id === accountToLogout);
     if (!logonToRevoke) {
       return NextResponse.json(
         { error: "Account not found in this session" },
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     // Check remaining accounts
     const remainingLogons = logons.filter(
-      (l: any) => l.account_id !== accountToLogout
+      (l) => l.account_id !== accountToLogout
     );
 
     // If logging out the last account: trigger global logout
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
       await switchActiveAccount(sessionId, nextAccount.account_id);
 
       // Generate tokens for switch
-      const userAccount = nextAccount.user_accounts;
+      const userAccount = nextAccount.user_accounts!;
       const accessToken = generateAccessToken(
         userId,
         userAccount.email,
@@ -135,7 +136,7 @@ export async function POST(request: NextRequest) {
         switched_to: nextAccount.account_id,
         accessToken,
         idToken,
-        accounts: remainingLogons.map((l: any) => ({
+        accounts: remainingLogons.map((l) => ({
           id: l.account_id,
           email: l.user_accounts?.email || "unknown",
           name: l.user_accounts?.name || "Unknown",
@@ -148,7 +149,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       logout: { accountId: accountToLogout },
-      accounts: remainingLogons.map((l: any) => ({
+      accounts: remainingLogons.map((l) => ({
         id: l.account_id,
         email: l.user_accounts?.email || "unknown",
         name: l.user_accounts?.name || "Unknown",

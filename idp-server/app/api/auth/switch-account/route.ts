@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SessionLogonWithAccount } from "@/types";
 import {
   getSession,
   switchActiveAccount,
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Get active accounts in this session
-    const logons = await getActiveSessionLogons(sessionId);
+    const logons = (await getActiveSessionLogons(sessionId)) as unknown as SessionLogonWithAccount[];
     if (!logons || logons.length === 0) {
       return NextResponse.json(
         { success: false, error: "No active accounts in session" },
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. Find the account to switch to
-    const targetLogon = logons.find((l: any) => l.account_id === accountId);
+    const targetLogon = logons.find((l) => l.account_id === accountId);
     if (!targetLogon) {
       return NextResponse.json(
         { success: false, error: "Account not in this session or is revoked" },

@@ -160,11 +160,12 @@ export async function POST(request: NextRequest) {
             error: checkError?.message || "Unknown error checking if client exists",
           });
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         results.push({
           clientId: client.client_id,
           status: "error",
-          error: String(error),
+          error: errorMessage,
         });
       }
     }

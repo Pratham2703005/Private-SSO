@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SessionLogonWithAccount } from "@/types";
 import {
   getSession,
   getActiveSessionLogons,
@@ -39,10 +40,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all active accounts in this session
-    const logons = await getActiveSessionLogons(sessionId);
+    const logons = (await getActiveSessionLogons(sessionId)) as unknown as SessionLogonWithAccount[];
 
     // Transform logons to account list
-    const accounts = logons.map((logon: any) => ({
+    const accounts = logons.map((logon) => ({
       id: logon.account_id,
       email: logon.user_accounts?.email || "unknown",
       name: logon.user_accounts?.name || "Unknown",

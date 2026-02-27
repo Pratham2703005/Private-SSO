@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
 
     // 7. Get all accounts in this session
     const allAccounts = await getUserAccounts(session.user_id);
-    const accountList = (allAccounts || []).map((acc: any) => ({
+    const accountList = (allAccounts || []).map((acc) => ({
       id: acc.id,
       name: acc.name,
       email: acc.email,

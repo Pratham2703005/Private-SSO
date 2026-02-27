@@ -144,13 +144,13 @@ export async function redeemAuthorizationCode(codeId: string): Promise<boolean> 
  * Clean up expired authorization codes (optional housekeeping)
  */
 export async function cleanupExpiredAuthorizationCodes(): Promise<number> {
-  const { data, error } = await supabase
+  const { error, count } = await supabase
     .from("authorization_codes")
     .delete()
     .lt("expires_at", new Date().toISOString());
 
   if (error) return 0;
-  return data?.length || 0;
+  return count || 0;
 }
 
 // ============================================================================
@@ -331,7 +331,7 @@ export async function rotateRefreshToken(
  * This prevents replay attacks on refresh tokens
  */
 export async function invalidateTokenFamily(familyId: string): Promise<number> {
-  const { data, error } = await supabase
+  const { error, count } = await supabase
     .from("refresh_tokens")
     .update({
       is_compromised: true,
@@ -339,14 +339,14 @@ export async function invalidateTokenFamily(familyId: string): Promise<number> {
     .eq("rotation_family_id", familyId);
 
   if (error) return 0;
-  return data?.length || 0;
+  return count || 0;
 }
 
 /**
  * Revoke all refresh tokens for a user (force re-authentication)
  */
 export async function revokeUserRefreshTokens(userId: string): Promise<number> {
-  const { data, error } = await supabase
+  const { error, count } = await supabase
     .from("refresh_tokens")
     .update({
       is_rotated: true,
@@ -356,20 +356,20 @@ export async function revokeUserRefreshTokens(userId: string): Promise<number> {
     .eq("is_rotated", false);
 
   if (error) return 0;
-  return data?.length || 0;
+  return count || 0;
 }
 
 /**
  * Clean up expired refresh tokens (optional housekeeping)
  */
 export async function cleanupExpiredRefreshTokens(): Promise<number> {
-  const { data, error } = await supabase
+  const { error, count } = await supabase
     .from("refresh_tokens")
     .delete()
     .lt("expires_at", new Date().toISOString());
 
   if (error) return 0;
-  return data?.length || 0;
+  return count || 0;
 }
 
 // ============================================================================

@@ -4,6 +4,7 @@
  * Ensures deterministic, stable ordering across requests
  */
 
+import type { SessionLogonWithAllFields } from '@/types';
 import { getSessionLogons, getAccountById, supabase } from './db';
 
 export interface IndexedAccount {
@@ -14,8 +15,8 @@ export interface IndexedAccount {
   avatar_url?: string;
   isPrimary: boolean;
   logged_in_at: string;
-  last_active_at: string;
-  revoked: boolean;
+  last_active_at: string | null;
+  revoked: boolean | null;
   // Stable index from idp_jar cookie (insertion order, never changes).
   // Used for /u/{jarIndex} URLs. Unlike `index` (session order), this is stable across account switches.
   jarIndex?: number;
@@ -91,14 +92,14 @@ export async function getAllAccountsWithIndices(
     const logons = await getSessionLogons(sessionId);
 
     // Filter by revoked status and assign indices
-    const activeAccounts: IndexedAccount[] = logons
+    const activeAccounts: IndexedAccount[] = (logons as unknown as SessionLogonWithAllFields[])
       .filter((logon) => !logon.revoked)
       .map((logon, accountIndex) => ({
         index: accountIndex,
         id: logon.account_id,
         email: logon.user_accounts?.email ?? 'unknown',
         name: logon.user_accounts?.name ?? 'Unknown',
-        avatar_url: logon.user_accounts?.avatar_url,
+        avatar_url: (logon.user_accounts as any)?.avatar_url,
         isPrimary: logon.user_accounts?.is_primary ?? false,
         logged_in_at: logon.logged_in_at,
         last_active_at: logon.last_active_at,
