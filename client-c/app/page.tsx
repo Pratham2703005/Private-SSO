@@ -264,6 +264,20 @@ export default function Home() {
           <div
             id="__account_switcher_mount_point"
             className="shrink-0"
+            data-signin-style="
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              padding: 0.8rem 1.8rem;
+              background: #ffffff;
+              color: #000;
+              border: 1px solid #dadce0;
+              border-radius: 6px;
+              font-weight: 500;
+              cursor: pointer;
+              box-shadow: 0 1px 2px rgba(60,64,67,0.15);
+              transition: box-shadow 0.25s ease, transform 0.15s ease;
+            "
             suppressHydrationWarning
           ></div>
         </nav>

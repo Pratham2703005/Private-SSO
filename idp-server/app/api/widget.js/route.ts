@@ -4,9 +4,25 @@
  * <script src="https://idp.com/widget.js"></script>
  */
 
+import { ACTIVE_THEME } from '@/lib/theme-config';
+
+// Map Tailwind gradient classes to hex values (covers all 8 themes)
+const TAILWIND_TO_HEX: Record<string, string> = {
+  'from-pink-400': '#f472b6', 'to-pink-600': '#db2777',
+  'from-indigo-400': '#818cf8', 'to-indigo-600': '#4f46e5',
+  'from-blue-400': '#60a5fa', 'to-blue-600': '#2563eb',
+  'from-purple-400': '#c084fc', 'to-pink-500': '#ec4899',
+  'from-cyan-400': '#22d3ee', 'to-blue-500': '#3b82f6',
+  'from-orange-400': '#fb923c', 'to-red-500': '#ef4444',
+  'from-emerald-400': '#34d399', 'to-teal-500': '#14b8a6',
+  'from-gray-600': '#4b5563', 'to-gray-800': '#1f2937',
+};
+
 export async function GET() {
   const idpOrigin = process.env.NEXT_PUBLIC_IDP_URL || 'http://localhost:3000';
   const widgetUrl = `${idpOrigin}/widget/account-switcher`;
+  const avatarGradFrom = TAILWIND_TO_HEX[ACTIVE_THEME.colors.avatarGradientFrom] || '#667eea';
+  const avatarGradTo = TAILWIND_TO_HEX[ACTIVE_THEME.colors.avatarGradientTo] || '#764ba2';
 
   const widgetScript = `
 (function(window) {
@@ -21,6 +37,8 @@ export async function GET() {
 
   const IDP_ORIGIN = '${idpOrigin}';
   const WIDGET_URL = '${widgetUrl}';
+  const AVATAR_GRADIENT_FROM = '${avatarGradFrom}';
+  const AVATAR_GRADIENT_TO = '${avatarGradTo}';
   let iframeModal = null;
   let iframe = null;
   let parentOrigin = null;
@@ -32,6 +50,19 @@ export async function GET() {
   let isIntegratedMode = false;
   let mountPoint = null;
 
+  // Cached account state from iframe (source of truth)
+  let currentAccountState = {
+    hasActiveSession: false,
+    activeAccountPreview: null, // { name, email, avatarUrl }
+    dataLoaded: false
+  };
+
+  // Sign-in button config (read from mount point data-* attributes)
+  let signInConfig = {
+    text: 'Sign in',
+    style: ''  // Full custom CSS string from data-signin-style
+  };
+
   // Detect parent origin from referrer or current location
   function getParentOrigin() {
     try {
@@ -42,11 +73,19 @@ export async function GET() {
   }
 
   // Detect mount point ONCE during initialization
+  // Also reads data-* attributes for sign-in button customization
   function detectMountPoint() {
     mountPoint = document.getElementById('__account_switcher_mount_point');
     if (mountPoint) {
       isIntegratedMode = true;
       console.log('[AccountSwitcher] Mount point detected - using integrated mode');
+
+      // Read sign-in button customization from data-* attributes
+      var text = mountPoint.getAttribute('data-signin-text');
+      var customStyle = mountPoint.getAttribute('data-signin-style');
+      if (text) signInConfig.text = text;
+      if (customStyle) signInConfig.style = customStyle;
+      console.log('[AccountSwitcher] Sign-in config:', signInConfig);
     } else {
       isIntegratedMode = false;
       console.log('[AccountSwitcher] No mount point - using floating mode');
@@ -122,15 +161,15 @@ export async function GET() {
       }
       
       #__account_switcher_popover.hidden {
-        display: none !important;
         visibility: hidden !important;
         pointer-events: none !important;
+        opacity: 0 !important;
       }
       
       #__account_switcher_popover.visible {
-        display: block !important;
         visibility: visible !important;
         pointer-events: auto !important;
+        opacity: 1 !important;
       }
       
       #__account_switcher_iframe {
@@ -151,6 +190,11 @@ export async function GET() {
       #__account_switcher_button {
         width: \${buttonSize};
         height: \${buttonSize};
+      }
+      
+      @keyframes __asSkeleton {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 1; }
       }
     \`;
     document.head.appendChild(style);
@@ -188,7 +232,8 @@ export async function GET() {
         // On IDP page but no jar index: trigger silent login
         triggerSilentLogin();
       } else {
-        // On client app: let client's widget-manager handle the refresh
+        // On client app: widget-manager handles ACCOUNT_SWITCHED by triggering OAuth re-auth
+        // which causes a full page redirect — no need to update button here (page will reload)
         console.log('[AccountSwitcher] On client domain, delegating to client widget-manager');
       }
       closeAccountSwitcher();
@@ -199,6 +244,9 @@ export async function GET() {
     if (event.data.type === 'logoutApp') {
       const logoutUrl = event.data.logoutUrl;
       console.log('[AccountSwitcher] Logging out of app, redirecting to:', logoutUrl);
+      // Reset button to sign-in immediately
+      currentAccountState = { hasActiveSession: false, activeAccountPreview: null, dataLoaded: true };
+      updateButtonAppearance();
       closeAccountSwitcher();
       setTimeout(() => {
         window.location.href = logoutUrl;
@@ -209,10 +257,57 @@ export async function GET() {
     // Handle: logoutGlobal (full logout)
     if (event.data.type === 'logoutGlobal') {
       console.log('[AccountSwitcher] Global logout initiated, redirecting to IDP');
+      // Reset button to sign-in immediately
+      currentAccountState = { hasActiveSession: false, activeAccountPreview: null, dataLoaded: true };
+      updateButtonAppearance();
       closeAccountSwitcher();
       setTimeout(() => {
         window.location.href = IDP_ORIGIN + '/login';
       }, 100);
+      return;
+    }
+
+    // Handle: sessionUpdate (account switch or auth change) — refresh button via /api/me
+    if (event.data.type === 'sessionUpdate') {
+      console.log('[AccountSwitcher] Session updated, refreshing button state');
+      var isOnClient = window.location.origin !== IDP_ORIGIN;
+      if (isOnClient) {
+        fetch('/api/me', { credentials: 'include' })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.authenticated && data.user) {
+              currentAccountState = {
+                hasActiveSession: true,
+                activeAccountPreview: {
+                  name: data.user.name || '?',
+                  email: data.user.email || '',
+                  avatarUrl: data.user.avatar_url || null
+                },
+                dataLoaded: true
+              };
+            } else {
+              currentAccountState = { hasActiveSession: false, activeAccountPreview: null, dataLoaded: true };
+            }
+            updateButtonAppearance();
+          })
+          .catch(function() {});
+      }
+      // Don't return — let other listeners (client page.tsx) also handle this
+    }
+
+    // Handle: accountStateChanged (iframe reports session state for button rendering)
+    if (event.data.type === 'accountStateChanged') {
+      currentAccountState = {
+        hasActiveSession: !!event.data.hasActiveSession,
+        activeAccountPreview: event.data.activeAccountPreview || null,
+        dataLoaded: !!event.data.dataLoaded
+      };
+      console.log('[AccountSwitcher] Account state updated:', {
+        hasActiveSession: currentAccountState.hasActiveSession,
+        name: currentAccountState.activeAccountPreview?.name || null,
+        dataLoaded: currentAccountState.dataLoaded
+      });
+      updateButtonAppearance();
       return;
     }
 
@@ -232,6 +327,37 @@ export async function GET() {
       return;
     }
   });
+
+  // Handle button click — split behavior based on session state
+  function handleButtonClick() {
+    if (!currentAccountState.hasActiveSession) {
+      // No active session: directly initiate login (no modal)
+      console.log('[AccountSwitcher] No active session — initiating sign-in flow');
+      var isOnIdpDomain = window.location.origin === IDP_ORIGIN;
+      if (isOnIdpDomain) {
+        // On IDP domain: navigate directly to login
+        window.location.href = IDP_ORIGIN + '/login';
+      } else {
+        // On client domain: directly call the client's auth start endpoint
+        // widget.js runs in the client's window context, so fetch goes to client's own API
+        fetch('/api/auth/start?prompt=login', { credentials: 'include' })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.url) {
+              window.location.href = data.url;
+            } else {
+              console.error('[AccountSwitcher] No auth URL returned');
+            }
+          })
+          .catch(function(err) {
+            console.error('[AccountSwitcher] Auth start failed:', err);
+          });
+      }
+      return;
+    }
+    // Has active session: toggle the account switcher popover
+    openAccountSwitcher();
+  }
 
   function openAccountSwitcher() {
     // Ensure iframe exists before trying to open
@@ -377,6 +503,137 @@ export async function GET() {
       });
   }
 
+  // Update button appearance based on cached account state
+  // Called whenever accountStateChanged arrives from iframe
+  // Only updates inner content — never recreates the button element
+  function updateButtonAppearance() {
+    if (!button) return;
+
+    const state = currentAccountState;
+    const buttonSize = isIntegratedMode ? '40px' : '44px';
+    const innerSize = isIntegratedMode ? '36px' : '40px';
+
+    // === SKELETON MODE: data not yet loaded — show pulsing placeholder ===
+    if (!state.dataLoaded) {
+      button.setAttribute('aria-label', 'Loading...');
+      button.title = '';
+      button.innerHTML = '';
+      button.disabled = true;
+      button.style.cssText = [
+        'width: ' + buttonSize,
+        'height: ' + buttonSize,
+        'border-radius: 50%',
+        'background: #e0e0e0',
+        'border: 2px solid #dadce0',
+        'cursor: default',
+        'display: flex',
+        'align-items: center',
+        'justify-content: center',
+        'padding: 0',
+        'outline: none',
+        'box-shadow: none',
+        'animation: __asSkeleton 1.5s ease-in-out infinite',
+      ].join('; ') + ';';
+      return;
+    }
+
+    // Re-enable button once data is loaded
+    button.disabled = false;
+
+    if (state.hasActiveSession && state.activeAccountPreview) {
+      // === AVATAR MODE: show active user's avatar ===
+      const preview = state.activeAccountPreview;
+      button.setAttribute('aria-label', 'Account: ' + preview.name);
+      button.title = preview.name + ' (' + preview.email + ')';
+      button.innerHTML = '';
+
+      // Full style reset (clears skeleton animation and sign-in styles)
+      button.style.cssText = [
+        'width: ' + buttonSize,
+        'height: ' + buttonSize,
+        'border-radius: 50%',
+        'border: 2px solid #dadce0',
+        'cursor: pointer',
+        'display: flex',
+        'align-items: center',
+        'justify-content: center',
+        'padding: 0',
+        'outline: none',
+        'box-shadow: none',
+        'overflow: hidden',
+        'background: transparent',
+      ].join('; ') + ';';
+
+      if (preview.avatarUrl) {
+        // Image avatar
+        var img = document.createElement('img');
+        img.src = preview.avatarUrl;
+        img.alt = preview.name;
+        img.style.cssText = 'width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block;';
+        img.onerror = function() {
+          // Fallback to initial if image fails
+          button.innerHTML = '';
+          renderInitialAvatar(button, preview.name, innerSize);
+        };
+        button.appendChild(img);
+      } else {
+        // Gradient initial avatar
+        renderInitialAvatar(button, preview.name, innerSize);
+      }
+      console.log('[AccountSwitcher] Button updated to avatar:', preview.name);
+    } else {
+      // === SIGN-IN MODE: show sign-in button ===
+      button.setAttribute('aria-label', signInConfig.text);
+      button.title = signInConfig.text;
+      button.innerHTML = '';
+
+      // Apply default sign-in styles, then overlay custom styles
+      button.style.cssText = [
+        'border-radius: 20px',
+        'width: auto',
+        'height: ' + (isIntegratedMode ? '36px' : '40px'),
+        'padding: 0 16px',
+        'background: #1a73e8',
+        'overflow: visible',
+        'display: flex',
+        'align-items: center',
+        'justify-content: center',
+        'cursor: pointer',
+        'border: none',
+        'box-shadow: none',
+        'transition: none',
+        'outline: none',
+        signInConfig.style  // Custom CSS overrides go last
+      ].filter(Boolean).join('; ') + ';';
+
+      var label = document.createElement('span');
+      label.textContent = signInConfig.text;
+      label.style.cssText = 'font-size: 14px; font-weight: 500; color: inherit; white-space: nowrap; line-height: 1;';
+      button.appendChild(label);
+
+      // Set text color default if not overridden by custom style
+      if (!signInConfig.style || signInConfig.style.indexOf('color') === -1) {
+        button.style.color = 'white';
+      }
+      console.log('[AccountSwitcher] Button updated to sign-in');
+    }
+  }
+
+  // Render a gradient circle with the user's initial inside the button
+  // Uses theme-matched gradient colors (injected at serve time)
+  function renderInitialAvatar(btn, name, size) {
+    btn.style.background = 'linear-gradient(135deg, ' + AVATAR_GRADIENT_FROM + ' 0%, ' + AVATAR_GRADIENT_TO + ' 100%)';
+    btn.style.overflow = 'hidden';
+    btn.style.padding = '0';
+    btn.style.borderRadius = '50%';
+    btn.style.width = size;
+    btn.style.height = size;
+    var initial = document.createElement('span');
+    initial.textContent = (name || '?').charAt(0).toUpperCase();
+    initial.style.cssText = 'font-size: 18px; font-weight: 600; color: white; line-height: 1; user-select: none;';
+    btn.appendChild(initial);
+  }
+
   // Create avatar button - appended to mount point (integrated) or body (floating)
   function createButton() {
     const container = document.createElement('div');
@@ -384,56 +641,32 @@ export async function GET() {
     
     const btn = document.createElement('button');
     btn.id = '__account_switcher_button';
-    btn.setAttribute('aria-label', 'Account Switcher');
-    btn.title = 'Account Switcher';
+    btn.setAttribute('aria-label', 'Sign in');
+    btn.title = 'Sign in';
     
     const buttonSize = isIntegratedMode ? '40px' : '44px';
     
-    btn.style.cssText = \`
-      width: \${buttonSize};
-      height: \${buttonSize};
-      border-radius: 50%;
-      border: 2px solid #dadce0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      cursor: pointer;
-      font-size: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      color: white;
-      font-weight: 600;
-      line-height: 1;
-      padding: 0;
-      outline: none;
-    \`;
+    // Start in skeleton state — no content, pulsing gray circle
+    // updateButtonAppearance() will immediately confirm this, then resolve to final state
+    btn.style.cssText = [
+      'width: ' + buttonSize,
+      'height: ' + buttonSize,
+      'border-radius: 50%',
+      'background: #e0e0e0',
+      'border: 2px solid #dadce0',
+      'cursor: default',
+      'display: flex',
+      'align-items: center',
+      'justify-content: center',
+      'padding: 0',
+      'outline: none',
+      'box-shadow: none',
+      'animation: __asSkeleton 1.5s ease-in-out infinite',
+    ].join('; ') + ';';
+    btn.disabled = true;
 
-    // Initial text (can be customized via config)
-    btn.textContent = '👤';
-
-    // Hover effects
-    btn.addEventListener('mouseenter', function() {
-      btn.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.25)';
-      btn.style.transform = 'scale(1.08)';
-    });
-
-    btn.addEventListener('mouseleave', function() {
-      btn.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.15)';
-      btn.style.transform = 'scale(1)';
-    });
-
-    // Active state
-    btn.addEventListener('mousedown', function() {
-      btn.style.transform = 'scale(0.95)';
-    });
-
-    btn.addEventListener('mouseup', function() {
-      btn.style.transform = 'scale(1.08)';
-    });
-
-    // Click handler
-    btn.addEventListener('click', openAccountSwitcher);
+    // Click handler — split between sign-in and modal
+    btn.addEventListener('click', handleButtonClick);
 
     container.appendChild(btn);
     
@@ -463,6 +696,9 @@ export async function GET() {
     // Create button and container
     createButton();
     
+    // Set initial button appearance (sign-in by default, updates when iframe reports state)
+    updateButtonAppearance();
+    
     // Pre-create iframe hidden (loads in background for instant opening on click)
     preloadIframe();
     
@@ -474,6 +710,53 @@ export async function GET() {
       window.addEventListener('scroll', repositionPopover, true); // Use capture phase
       window.addEventListener('resize', repositionPopover);
     }
+    
+    // Fallback: resolve skeleton if iframe doesn't report state in time.
+    // IDP: iframe has first-party cookies and WILL report — use longer timeout (just a safety net).
+    // Client: third-party cookies may be blocked — check /api/me quickly.
+    var isOnIdp = window.location.origin === IDP_ORIGIN;
+    var fallbackDelay = isOnIdp ? 3000 : 500;
+    setTimeout(function() {
+      if (currentAccountState.dataLoaded) return; // iframe already reported, no need
+      if (isOnIdp) {
+        // On IDP: iframe should have first-party cookies. If no state arrived,
+        // user is signed out (SignInButton path doesn't send accountStateChanged).
+        console.log('[AccountSwitcher] Iframe did not report state — defaulting to sign-in');
+        currentAccountState = { hasActiveSession: false, activeAccountPreview: null, dataLoaded: true };
+        updateButtonAppearance();
+        return;
+      }
+      console.log('[AccountSwitcher] Iframe did not report state — checking client /api/me fallback');
+      fetch('/api/me', { credentials: 'include' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (currentAccountState.dataLoaded) return; // arrived in the meantime
+          if (data.authenticated && data.user) {
+            currentAccountState = {
+              hasActiveSession: true,
+              activeAccountPreview: {
+                name: data.user.name || data.account?.name || '?',
+                email: data.user.email || data.account?.email || '',
+                avatarUrl: data.user.avatar_url || null
+              },
+              dataLoaded: true
+            };
+            console.log('[AccountSwitcher] Fallback: user is authenticated, showing avatar');
+          } else {
+            currentAccountState = { hasActiveSession: false, activeAccountPreview: null, dataLoaded: true };
+            console.log('[AccountSwitcher] Fallback: user not authenticated');
+          }
+          updateButtonAppearance();
+        })
+        .catch(function(err) {
+          console.log('[AccountSwitcher] Fallback /api/me failed:', err);
+          // Still resolve skeleton on error — show sign-in
+          if (!currentAccountState.dataLoaded) {
+            currentAccountState = { hasActiveSession: false, activeAccountPreview: null, dataLoaded: true };
+            updateButtonAppearance();
+          }
+        });
+    }, fallbackDelay);
     
     console.log('[AccountSwitcher] Widget loaded successfully');
     console.log('[AccountSwitcher] Mode:', isIntegratedMode ? 'INTEGRATED' : 'FLOATING');

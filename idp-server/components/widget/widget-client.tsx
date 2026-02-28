@@ -229,6 +229,31 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
   const otherAccounts = displayAccounts.slice(1);
   const hasAnyActiveSession = displayAccounts.some(a => a.accountState === 'active' || a.accountState === 'can_switch');
 
+  // Track last sent state to avoid spamming parent with duplicate messages
+  const lastSentStateRef = useRef<string>('');
+
+  // Notify parent of account state changes (for widget button rendering)
+  // Sends minimal preview data only — no full account list
+  useEffect(() => {
+    const hasActiveSession = !!activeAccount;
+    const preview = hasActiveSession
+      ? { name: activeAccount.name, email: activeAccount.email, avatarUrl: activeAccount.avatar_url || null }
+      : null;
+
+    // Shallow compare: only send if state actually changed
+    const stateKey = JSON.stringify({ hasActiveSession, preview });
+    if (stateKey === lastSentStateRef.current) return;
+    lastSentStateRef.current = stateKey;
+
+    notifyParent('accountStateChanged', {
+      hasActiveSession,
+      dataLoaded: true,
+      activeAccountPreview: preview,
+    });
+
+    console.log('[WidgetClient] Sent accountStateChanged:', { hasActiveSession, preview: preview?.name || null });
+  }, [activeAccount, displayAccounts]);
+
   // No accounts at all (no jar, no session) — just show "Add account"
   if (!activeAccount) {
     return (
