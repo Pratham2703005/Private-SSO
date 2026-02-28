@@ -192,16 +192,16 @@ export default function Home() {
       if (event.data?.type === 'sessionUpdate') {
         console.log('[Home] Received session update from widget, refreshing...');
         setSwitching(false);
-        fetchSession();
-        return;
-      }
-
+        fetchSession(true);
+        
         // Show success toast for account switch
         toast.success({
           message: 'Account switched successfully!',
           robotVariant: 'wave',
           theme: 'dark'
         });
+        return;
+      }
         
       // Handle startAuth messages from iframe
       if (event.data?.type === 'startAuth') {
