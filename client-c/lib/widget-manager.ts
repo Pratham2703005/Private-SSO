@@ -186,9 +186,9 @@ class WidgetManager {
 
       case "ACCOUNT_SWITCHED":
         console.log("[Client] Account switched:", msg.payload?.activeAccountId);
-        // Account switched, refresh user data from client backend
-        // Don't navigate away - stay on the client app
-        void this.fetchAndUpdateUser();
+        // Account switched on IDP - client session must be refreshed via OAuth re-auth
+        // This ensures app_session_c matches IDP's active_account_id
+        this.triggerAccountSwitchReauth(msg.payload?.accountId);
         break;
 
       case "AUTH_STATE": {
@@ -323,6 +323,46 @@ class WidgetManager {
 
     await this.sendToWidget(msg);
     // Handler will redirect to login
+  }
+
+  /**
+   * Handle account switch: trigger OAuth re-auth on client
+   * This replaces app_session_c with a new session that matches IDP's active_account_id
+   * 
+   * Pattern:
+   * - IDP updates __sso_session active_account_id
+   * - Widget notifies client: ACCOUNT_SWITCHED
+   * - Client constructs /authorize?prompt=none URL (from its own config)
+   * - Client navigates to IDP /authorize
+   * - IDP /authorize (with new active account) redirects to /callback?code=NEW_CODE
+   * - Client /callback exchanges code, sets new app_session_c
+   * - Result: Client session now matches IDP identity
+   */
+  private triggerAccountSwitchReauth(accountId?: string) {
+    try {
+      const idpOrigin = process.env.NEXT_PUBLIC_IDP_ORIGIN || 'http://localhost:3000';
+      const clientId = process.env.NEXT_PUBLIC_CLIENT_ID || 'client-c';
+      const redirectUri = process.env.NEXT_PUBLIC_REDIRECT_URI || 'http://localhost:3003/api/auth/callback';
+
+      // Build authorize URL for silent re-auth
+      const authorizeUrl = new URL(`${idpOrigin}/authorize`);
+      authorizeUrl.searchParams.append('client_id', clientId);
+      authorizeUrl.searchParams.append('redirect_uri', redirectUri);
+      authorizeUrl.searchParams.append('response_type', 'code');
+      authorizeUrl.searchParams.append('prompt', 'none'); // Silent auth
+      if (accountId) {
+        authorizeUrl.searchParams.append('account_hint', accountId);
+      }
+
+      console.log('[Client] Redirecting to OAuth re-auth after account switch:', authorizeUrl.toString());
+      
+      // Navigate to authorize endpoint
+      // IDP will detect existing __sso_session with new active_account_id
+      // and redirect back to /callback with new auth code
+      window.location.href = authorizeUrl.toString();
+    } catch (error) {
+      console.error('[Client] Failed to trigger account switch re-auth:', error);
+    }
   }
 
   /**

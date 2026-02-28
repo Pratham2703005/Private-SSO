@@ -33,6 +33,7 @@ interface SwitchAccountResponse {
   success: boolean;
   newActiveIndex?: number;
   activeId?: string;
+  accountId?: string; // Account ID for client to use in re-auth
   error?: string;
 }
 
@@ -114,7 +115,16 @@ export async function POST(request: NextRequest) {
       success: true,
       newActiveIndex: index,
       activeId: account.id,
+      accountId: account.id,
     };
+
+    // After successful switch:
+    // - IDP session (__sso_session) now has new active_account_id
+    // - Client will receive ACCOUNT_SWITCHED message via postMessage
+    // - Client's widget-manager will detect this and trigger OAuth re-auth
+    // - Client constructs authorize URL from its own config (clientId, redirectUri)
+    // - This ensures tight coupling is avoided (IDP doesn't hardcode client URLs)
+    // - Enables multi-client support (client-a, client-b, client-c all use same IDP)
 
     console.log(
       `[Widget] /switch-account: Switched to index ${index} (${account.email})`

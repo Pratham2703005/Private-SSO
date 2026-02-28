@@ -80,6 +80,9 @@ export async function GET(request: NextRequest) {
 
     // NO TOKEN STORAGE - client doesn't store access_token or refresh_token
     // IDP manages all tokens, client only stores session reference
+    // IMPORTANT: Always unconditionally overwrite app_session_c
+    // If account switched: old app_session_c is replaced with new one
+    // If normal login: new app_session_c is created
     response.cookies.set({
       name: "app_session_c",
       value: sessionId,

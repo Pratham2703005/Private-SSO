@@ -203,9 +203,13 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
         setState(prev => ({ ...prev, switching: false }));
       }
 
-      // Always send ACCOUNT_SWITCHED (widget.js closes popover; on IDP also navigates to /u/{jarIndex})
+      // Always send ACCOUNT_SWITCHED
+      // On IDP: widget.js handles redirect to /u/{jarIndex}
+      // On client: widget-manager detects this and triggers OAuth re-auth
+      //   (client constructs authorize URL from its own config, avoiding cross-origin access)
       notifyParent('ACCOUNT_SWITCHED', {
         activeAccountId: data.activeId,
+        accountId: data.accountId, // For client to know which account was switched to
         jarIndex,
       });
 
