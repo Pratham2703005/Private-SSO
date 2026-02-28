@@ -118,7 +118,7 @@ export default function Home() {
   // Note: Widget iframe is injected via AccountSwitcher script (widget.js)
   // We don't preload it here to avoid duplicate iframe issues
 
-  // Show toast when loading completes
+  // Show toast when initial loading completes
   useEffect(() => {
     if (loading) return;
 
@@ -137,7 +137,7 @@ export default function Home() {
         theme: 'dark'
       })
     }
-  }, [loading, session]);
+  }, [loading]);
 
   // Reference to actual widget iframe (captured from first message)
   const widgetContentWindowRef = useRef<Window | null>(null);
@@ -196,6 +196,13 @@ export default function Home() {
         return;
       }
 
+        // Show success toast for account switch
+        toast.success({
+          message: 'Account switched successfully!',
+          robotVariant: 'wave',
+          theme: 'dark'
+        });
+        
       // Handle startAuth messages from iframe
       if (event.data?.type === 'startAuth') {
         const iframeOrigin = 'http://localhost:3000';
