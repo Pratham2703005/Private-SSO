@@ -13,7 +13,7 @@ import {
   ProfileAvatar,
 } from "@/components/ui";
 import { QUICK_ACTIONS } from "@/constants/navigation";
-import { User } from "@/types/account";
+import type { User, UserAccount } from "@/types/database";
 import { notFound } from "next/navigation";
 import { ReauthWall } from "@/components/account/reauth-wall";
 
@@ -33,6 +33,7 @@ export default async function HomePage({ params }: PageProps) {
   const jarCookie = cookieStore.get("idp_jar")?.value || null;
 
   let user: User | null = null;
+  let account: UserAccount | null = null;
   let accountId: string | null = null;
   let isNeedsReauth = false;
 
@@ -71,9 +72,9 @@ export default async function HomePage({ params }: PageProps) {
     }
 
     accountId = combinedIds[indexNum];
-    const accountData = await getAccountById(accountId);
-    if (accountData?.user_id) {
-      user = await getUserById(accountData.user_id);
+    account = await getAccountById(accountId);
+    if (account?.user_id) {
+      user = await getUserById(account.user_id);
     }
 
     // Check if this account needs reauth (in jar but NOT in active session logons)
@@ -83,9 +84,9 @@ export default async function HomePage({ params }: PageProps) {
   } else {
     // Direct account ID
     accountId = reg_userid;
-    const accountData = await getAccountById(reg_userid);
-    if (accountData?.user_id) {
-      user = await getUserById(accountData.user_id);
+    account = await getAccountById(reg_userid);
+    if (account?.user_id) {
+      user = await getUserById(account.user_id);
     }
 
     // Check if this account needs reauth
@@ -94,7 +95,7 @@ export default async function HomePage({ params }: PageProps) {
     }
   }
 
-  if (!user) {
+  if (!user || !account) {
     // Not logged in - show landing page using components
     return (
       <div className="min-h-screen bg-white">
@@ -111,16 +112,16 @@ export default async function HomePage({ params }: PageProps) {
   // Account exists in jar but session expired — show reauth wall (Google-style)
   if (isNeedsReauth) {
     // Mask email: show first 2 chars + ***@domain
-    const emailParts = user.email.split("@");
+    const emailParts = account.email.split("@");
     const maskedEmail =
       emailParts[0].substring(0, 2) + "***@" + (emailParts[1] || "");
 
     return (
       <ReauthWall
-        name={user.name}
+        name={account.name}
         maskedEmail={maskedEmail}
-        email={user.email}
-        initial={user.name?.charAt(0)?.toUpperCase() || "?"}
+        email={account.email}
+        initial={account.name?.charAt(0)?.toUpperCase() || "?"}
         returnTo={`/u/${reg_userid}`}
       />
     );
@@ -141,16 +142,16 @@ export default async function HomePage({ params }: PageProps) {
       <div className="mb-12 text-center">
         <div className="flex justify-center mb-6">
           <ProfileAvatar
-            name={user.name}
-            email={user.email}
+            name={account.name}
+            email={account.email}
             size="2xl"
             showBorder={true}
           />
         </div>
         <h2 className="text-3xl font-bold text-gray-900 mb-2">
-          {user.name || user.email.split("@")[0]}
+          {account.name || account.email.split("@")[0]}
         </h2>
-        <p className="text-gray-600 mb-2">{user.email}</p>
+        <p className="text-gray-600 mb-2">{account.email}</p>
       </div>
 
       {/* Search Bar */}

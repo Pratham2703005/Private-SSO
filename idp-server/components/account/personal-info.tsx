@@ -1,11 +1,11 @@
 "use client";
 
-import { User } from "@/types/account";
+import { UserAccount } from "@/types/database";
 import { ProfileAvatar } from "@/components/ui";
 import Link from "next/link";
 
 interface PersonalInfoProps {
-  user: User;
+  account: UserAccount;
   onEditField?: (field: string) => void;
 }
 
@@ -16,60 +16,60 @@ interface InfoField {
   isEditable?: boolean;
 }
 
-export function PersonalInfo({ user, onEditField }: PersonalInfoProps) {
+export function PersonalInfo({ account, onEditField }: PersonalInfoProps) {
   const fields: InfoField[] = [
     {
       icon: "📷",
       label: "Profile picture",
-      value: user.name ? "Uploaded" : "Not set",
+      value: account.profile_image_url ? "Uploaded" : "Not set",
       isEditable: true,
     },
     {
       icon: "👤",
       label: "Name",
-      value: user.name || "Not set",
+      value: account.name || "Not set",
       isEditable: true,
     },
     {
       icon: "⚧",
       label: "Gender",
-      value: "Not set",
+      value: account.gender || "Not set",
       isEditable: true,
     },
     {
       icon: "✉️",
       label: "Email",
-      value: user.email,
+      value: account.email,
       isEditable: false,
     },
     {
       icon: "📱",
       label: "Phone",
-      value: "Not set",
+      value: account.phone || "Not set",
       isEditable: true,
     },
     {
       icon: "🎂",
       label: "Birthday",
-      value: "Not set",
+      value: account.birthday || "Not set",
       isEditable: true,
     },
     {
       icon: "🌍",
       label: "Language",
-      value: "English (United States)",
+      value: account.language || "English (United States)",
       isEditable: true,
     },
     {
       icon: "🏠",
       label: "Home address",
-      value: "Not set",
+      value: account.home_address || "Not set",
       isEditable: true,
     },
     {
       icon: "💼",
       label: "Work address",
-      value: "Not set",
+      value: account.work_address || "Not set",
       isEditable: true,
     },
   ];
@@ -90,8 +90,8 @@ export function PersonalInfo({ user, onEditField }: PersonalInfoProps) {
           <div className="flex items-center gap-6">
             <div className="flex justify-center">
               <ProfileAvatar
-                name={user.name}
-                email={user.email}
+                name={account.name}
+                email={account.email}
                 size="lg"
                 showBorder={true}
               />
@@ -99,7 +99,7 @@ export function PersonalInfo({ user, onEditField }: PersonalInfoProps) {
             <div>
               <h3 className="font-semibold text-gray-900 mb-1">Profile picture</h3>
               <p className="text-sm text-gray-600 mb-3">
-                {user.name ? "Picture uploaded" : "No picture set"}
+                {account.profile_image_url ? "Picture uploaded" : "No picture set"}
               </p>
               <button className="text-blue-600 hover:text-blue-700 font-medium text-sm">
                 Upload picture

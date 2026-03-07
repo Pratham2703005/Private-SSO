@@ -140,7 +140,6 @@ export async function POST(request: NextRequest) {
             id: user.id,
             email: primaryAccount.email,
             name: primaryAccount.name,
-            profileImage: user.profile_image_url,
           },
         },
       },

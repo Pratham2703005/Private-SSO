@@ -38,10 +38,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create user
-    const user = await createUser(email, password, name);
+    // Create user (auth identity only)
+    const user = await createUser(email, password);
 
-    // Create primary account
+    // Create primary account (profile identity)
     const account = await createUserAccount(user.id, email, name, true);
 
     // Stage 11: Check if user already has IDP session

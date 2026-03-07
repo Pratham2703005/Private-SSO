@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { getSession, getUserById, getAccountById } from "@/lib/db";
 import { getAllAccountsWithIndices } from "@/lib/account-indexing";
 import { PersonalInfo } from "@/components/account/personal-info";
-import { User } from "@/types/account";
+import type { User, UserAccount } from "@/types/database";
 import { notFound } from "next/navigation";
 import { ReauthWall } from "@/components/account/reauth-wall";
 
@@ -22,6 +22,7 @@ export default async function PersonalInfoPage({ params }: PageProps) {
   const jarCookie = cookieStore.get("idp_jar")?.value || null;
 
   let user: User | null = null;
+  let account: UserAccount | null = null;
   let accountId: string | null = null;
   let isNeedsReauth = false;
 
@@ -58,9 +59,9 @@ export default async function PersonalInfoPage({ params }: PageProps) {
     }
 
     accountId = combinedIds[indexNum];
-    const accountData = await getAccountById(accountId);
-    if (accountData?.user_id) {
-      user = await getUserById(accountData.user_id);
+    account = await getAccountById(accountId);
+    if (account?.user_id) {
+      user = await getUserById(account.user_id);
     }
 
     // Check if this account needs reauth (in jar but NOT in active session logons)
@@ -70,9 +71,9 @@ export default async function PersonalInfoPage({ params }: PageProps) {
   } else {
     // Direct account ID
     accountId = reg_userid;
-    const accountData = await getAccountById(reg_userid);
-    if (accountData?.user_id) {
-      user = await getUserById(accountData.user_id);
+    account = await getAccountById(reg_userid);
+    if (account?.user_id) {
+      user = await getUserById(account.user_id);
     }
 
     // Check if this account needs reauth
@@ -81,22 +82,22 @@ export default async function PersonalInfoPage({ params }: PageProps) {
     }
   }
 
-  if (!user) {
+  if (!user || !account) {
     notFound();
   }
 
   // Account exists in jar but session expired — show reauth wall
   if (isNeedsReauth) {
-    const emailParts = user.email.split("@");
+    const emailParts = account.email.split("@");
     const maskedEmail =
       emailParts[0].substring(0, 2) + "***@" + (emailParts[1] || "");
 
     return (
       <ReauthWall
-        name={user.name}
+        name={account.name}
         maskedEmail={maskedEmail}
-        email={user.email}
-        initial={user.name?.charAt(0)?.toUpperCase() || "?"}
+        email={account.email}
+        initial={account.name?.charAt(0)?.toUpperCase() || "?"}
         returnTo={`/u/${reg_userid}/personal-info`}
       />
     );
@@ -104,6 +105,6 @@ export default async function PersonalInfoPage({ params }: PageProps) {
 
   // Logged in - show personal info page
   return (
-    <PersonalInfo user={user} />
+    <PersonalInfo account={account} />
   );
 }

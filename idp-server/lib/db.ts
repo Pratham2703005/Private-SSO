@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import type { User, UserAccount } from "@/types/database";
 
 function uuidv4(): string {
   return crypto.randomUUID();
@@ -18,9 +19,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 // User Functions
 export async function createUser(
   email: string,
-  password: string,
-  name: string,
-  profileImage?: string
+  password: string
 ) {
   const userId = uuidv4();
   const passwordHash = await bcrypt.hash(password, 10);
@@ -31,8 +30,6 @@ export async function createUser(
       id: userId,
       email,
       password_hash: passwordHash,
-      name,
-      profile_image_url: profileImage || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -41,10 +38,10 @@ export async function createUser(
     console.error("Error creating user:", error);
     throw error;
   }
-  return { id: userId, email, name };
+  return { id: userId, email };
 }
 
-export async function getUserByEmail(email: string) {
+export async function getUserByEmail(email: string): Promise<User | null> {
   const { data, error } = await supabase
     .from("users")
     .select("*")
@@ -55,7 +52,7 @@ export async function getUserByEmail(email: string) {
   return data;
 }
 
-export async function getUserById(userId: string) {
+export async function getUserById(userId: string): Promise<User | null> {
   const { data, error } = await supabase
     .from("users")
     .select("*")
@@ -78,7 +75,8 @@ export async function createUserAccount(
   userId: string,
   email: string,
   name: string,
-  isPrimary: boolean = false
+  isPrimary: boolean = false,
+  profileImage?: string
 ) {
   const accountId = uuidv4();
 
@@ -89,8 +87,16 @@ export async function createUserAccount(
         user_id: userId,
         email,
         name,
+        profile_image_url: profileImage || null,
+        gender: null,
+        phone: null,
+        birthday: null,
+        language: "English (United States)",
+        home_address: null,
+        work_address: null,
         is_primary: isPrimary,
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       },
     ]);
 
@@ -102,7 +108,7 @@ export async function createUserAccount(
   return { id: accountId, email, name, isPrimary };
 }
 
-export async function getUserAccounts(userId: string) {
+export async function getUserAccounts(userId: string): Promise<UserAccount[]> {
   const { data, error } = await supabase
     .from("user_accounts")
     .select("*")
@@ -110,10 +116,10 @@ export async function getUserAccounts(userId: string) {
     .order("created_at", { ascending: true });
 
   if (error) return [];
-  return data;
+  return data || [];
 }
 
-export async function getAccountById(accountId: string) {
+export async function getAccountById(accountId: string): Promise<UserAccount | null> {
   const { data, error } = await supabase
     .from("user_accounts")
     .select("*")
@@ -134,7 +140,6 @@ export async function createSession(userId: string, accountId?: string) {
         id: sessionId,
         user_id: userId,
         active_account_id: accountId || null,
-        refresh_token_hash: null,
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         created_at: new Date().toISOString(),
       },
@@ -379,12 +384,11 @@ export async function getUserProfileWithAccounts(userId: string) {
   return {
     id: user.id,
     email: user.email,
-    name: user.name,
-    profileImage: user.profile_image_url,
     accounts: accounts.map((acc) => ({
       id: acc.id,
       email: acc.email,
       name: acc.name,
+      profileImage: acc.profile_image_url,
       isPrimary: acc.is_primary,
     })),
   };

@@ -36,34 +36,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const clientId = searchParams.get("client_id");
     const redirectUri = searchParams.get("redirect_uri");
-    const scopes = searchParams.get("scopes") || "profile,email";
-    const state = searchParams.get("state") || generateState();
+    const scopes = searchParams.get("scopes")!;
+    const state = searchParams.get("state")!;
     const codeChallenge = searchParams.get("code_challenge");
     const ttlSecondsParam = searchParams.get("ttl_seconds"); // For testing
     const ttlSeconds = ttlSecondsParam ? parseInt(ttlSecondsParam, 10) : 600; // Default 10 minutes
     const prompt = searchParams.get("prompt"); // "none" for silent auth
-
-    // Debug logging
-    console.log('[Authorize] Request received');
-    console.log('[Authorize] CODE_CHALLENGE from query:', {
-      codeChallenge: codeChallenge,
-      codeChallenge_length: codeChallenge ? codeChallenge.length : 0,
-      codeChallenge_first_20: codeChallenge ? codeChallenge.substring(0, 20) + "..." : "(null)",
-      codeChallenge_type: typeof codeChallenge,
-    });
-    console.log('[Authorize] Query params:', {
-      clientId,
-      redirectUri,
-      scopes,
-      codeChallenge,
-      ttlSeconds,
-    });
-    
-    const allCookies = request.cookies.getAll();
-    console.log('[Authorize] Incoming cookies:', allCookies.map(c => ({
-      name: c.name,
-      valuePreview: c.value ? c.value.substring(0, 16) + "..." : "EMPTY",
-    })));
 
     if (!clientId || !redirectUri) {
       const errorResponse = NextResponse.json(
@@ -76,12 +54,9 @@ export async function GET(request: NextRequest) {
     // ============================================================================
     // STAGE 2: Validate OAuth Client
     // ============================================================================
-    console.log('[Authorize] Validating OAuth client:', clientId);
     const oauthClient = await getOAuthClient(clientId);
-    console.log('[Authorize] OAuth client result:', oauthClient ? 'found' : 'not found');
 
     if (!oauthClient) {
-      console.log('[Authorize] Client not found:', clientId);
       const errorResponse = NextResponse.json(
         { success: false, error: "invalid_client", error_description: "Client not found" },
         { status: 400 }
@@ -89,9 +64,7 @@ export async function GET(request: NextRequest) {
       return addCorsHeaders(errorResponse, request);
     }
 
-    console.log('[Authorize] Client is_active:', oauthClient.is_active);
     if (!oauthClient.is_active) {
-      console.log('[Authorize] Client is inactive:', clientId);
       const errorResponse = NextResponse.json(
         { success: false, error: "invalid_client", error_description: "Client is inactive" },
         { status: 400 }
@@ -101,12 +74,9 @@ export async function GET(request: NextRequest) {
 
     // Validate redirect_uri is in the allowed list
     const allowedRedirectUris = oauthClient.allowed_redirect_uris || [];
-    console.log('[Authorize] Allowed redirect URIs:', allowedRedirectUris);
-    console.log('[Authorize] Requested redirect URI:', redirectUri);
     const isRedirectUriAllowed = allowedRedirectUris.includes(redirectUri);
 
     if (!isRedirectUriAllowed) {
-      console.log('[Authorize] Invalid redirect_uri:', redirectUri, 'Allowed:', allowedRedirectUris);
       const errorResponse = NextResponse.json(
         { success: false, error: "invalid_redirect_uri", error_description: "Redirect URI not allowed" },
         { status: 400 }
@@ -114,23 +84,15 @@ export async function GET(request: NextRequest) {
       return addCorsHeaders(errorResponse, request);
     }
 
-    console.log('[Authorize] OAuth client validation passed:', clientId);
-
     // Check for master cookie (existing session)
     const sessionId = getMasterCookie(request);
-    console.log('[Authorize] Master cookie check:', {
-      found: !!sessionId,
-      sessionId: sessionId ? sessionId.substring(0, 16) + "..." : "NOT_FOUND",
-    });
 
     // prompt=login means the user explicitly wants the login page (re-auth, add account)
     // Skip auto-approval even if there's a valid session
     if (prompt === 'login') {
-      console.log('[Authorize] prompt=login → forcing login page (skipping session auto-approve)');
     } else if (sessionId) {
       // User is logged in, fetch session
       const session = await getSession(sessionId);
-      console.log('[Authorize] Session found:', !!session);
 
       if (session && session.expires_at > new Date().toISOString()) {
         // Session is valid, generate authorization code
@@ -149,8 +111,6 @@ export async function GET(request: NextRequest) {
           activeAccount = accounts.find((acc) => acc.is_primary) || accounts[0];
         }
 
-        console.log('[Authorize] Active account:', activeAccount?.id ? activeAccount.id.substring(0, 8) + '...' : 'none');
-
         if (!activeAccount) {
           const errorResponse = NextResponse.json(
             { success: false, error: "No account found" },
@@ -161,7 +121,6 @@ export async function GET(request: NextRequest) {
 
         // Get the user who owns this account
         const user = await getUserById(activeAccount.user_id || session.user_id);
-        console.log('[Authorize] User found:', !!user);
         
         if (!user) {
           const errorResponse = NextResponse.json(
@@ -174,12 +133,6 @@ export async function GET(request: NextRequest) {
         // Stage 3: Generate authorization code instead of access token
         const scopesArray = scopes.split(",").map((s) => s.trim());
 
-        console.log('[Authorize] ABOUT TO CREATE AUTH CODE with codeChallenge:', {
-          codeChallenge: codeChallenge,
-          codeChallenge_length: codeChallenge ? codeChallenge.length : 0,
-          codeChallenge_first_20: codeChallenge ? codeChallenge.substring(0, 20) + "..." : "(null or empty)",
-        });
-
         const authCode = await createAuthorizationCode(
           user.id,  // Use the user who owns the active account
           clientId,
@@ -190,11 +143,6 @@ export async function GET(request: NextRequest) {
           ttlSeconds
         );
 
-        console.log('[Authorize] auth code created:', {
-          code: authCode ? authCode.substring(0, 20) + "..." : "(null)",
-          codeChallenge_passed: codeChallenge ? "YES" : "NO",
-        });
-
         if (!authCode) {
           const errorResponse = NextResponse.json(
             { success: false, error: "Failed to generate authorization code" },
@@ -203,11 +151,8 @@ export async function GET(request: NextRequest) {
           return addCorsHeaders(errorResponse, request);
         }
 
-        console.log('[Authorize] Authorization code generated');
-
         // For prompt=none (silent auth), return JSON response
         if (prompt === 'none') {
-          console.log('[Authorize] Silent auth response (prompt=none)');
           const response = NextResponse.json(
             { code: authCode, state },
             { status: 200 }
@@ -220,26 +165,19 @@ export async function GET(request: NextRequest) {
         callbackUrl.searchParams.set("code", authCode);
         callbackUrl.searchParams.set("state", state);
 
-        console.log('[Authorize] Redirecting to callback:', callbackUrl.toString());
-
         return NextResponse.redirect(callbackUrl);
       }
     }
 
-    // No valid session
-    console.log('[Authorize] No valid session');
-
     // For prompt=none (silent auth fail), return 401 instead of redirect to login
     if (prompt === 'none') {
-      console.log('[Authorize] Silent auth failed - no session (prompt=none)');
       const errorResponse = NextResponse.json(
         { success: false, error: 'No valid session', error_description: 'prompt=none but no active session' },
         { status: 401 }
       );
       return addCorsHeaders(errorResponse, request);
     }
-
-    console.log('[Authorize] Redirecting to login');
+    
     // Redirect to login with return params (including code_challenge for PKCE)
     const loginUrl = new URL("/login", request.nextUrl.origin);
     loginUrl.searchParams.set("client_id", clientId);

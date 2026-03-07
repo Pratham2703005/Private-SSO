@@ -8,8 +8,6 @@ export interface Database {
           id: string;
           email: string;
           password_hash: string;
-          name: string;
-          profile_image_url: string | null;
           created_at: string | null;
           updated_at: string | null;
         };
@@ -17,11 +15,19 @@ export interface Database {
       user_accounts: {
         Row: {
           id: string;
-          user_id: string | null;
+          user_id: string;
           email: string;
           name: string;
+          profile_image_url: string | null;
+          gender: string | null;
+          phone: string | null;
+          birthday: string | null;
+          language: string | null;
+          home_address: string | null;
+          work_address: string | null;
           is_primary: boolean | null;
           created_at: string | null;
+          updated_at: string | null;
         };
       };
       authorization_codes: {
@@ -83,7 +89,6 @@ export interface Database {
         Row: {
           id: string;
           user_id: string | null;
-          refresh_token_hash: string | null;
           expires_at: string;
           created_at: string | null;
           active_account_id: string | null;

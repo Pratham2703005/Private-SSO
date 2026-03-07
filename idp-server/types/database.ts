@@ -59,7 +59,7 @@ export type SafeUserAccount = Pick<
  */
 export type SafeUser = Pick<
   User,
-  "id" | "email" | "name" | "profile_image_url" | "created_at" | "updated_at"
+  "id" | "email" | "created_at" | "updated_at"
 >;
 
 /**
