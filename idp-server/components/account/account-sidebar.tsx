@@ -1,26 +1,38 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { NavItem } from "@/types/account";
 import { NavIcon } from "@/components/ui/nav-icon";
 
 interface AccountSidebarProps {
   items: NavItem[];
-  currentPath?: string;
+  regUserId?: string;
 }
 
-export function AccountSidebar({ items, currentPath = "/" }: AccountSidebarProps) {
+export function AccountSidebar({ items, regUserId = "0" }: AccountSidebarProps) {
+  const pathname = usePathname();
+
   return (
     <aside className="w-64 flex-shrink-0">
       <nav className="space-y-1">
         {items.map((item) => {
-          const isActive = currentPath === item.href;
+          // Replace /u/ with /u/[regUserId]/ in navigation links
+          const href = item.href.replace(/^\/u\//, `/u/${regUserId}/`);
+          // Normalize href by removing trailing slash for comparison
+          const normalizedHref = href.replace(/\/$/, '');
+          // Normalize current pathname
+          const normalizedPathname = pathname.replace(/\/$/, '');
+          // Check if current pathname matches the href
+          const isActive = normalizedPathname === normalizedHref;
           return (
             <Link
               key={item.href}
-              href={item.href}
-              className={`flex items-center gap-4 p-2 pr-4 rounded-full transition-colors w-fit ${
+              href={href}
+              className={`flex items-center gap-4 p-2 pr-4 rounded-full transition-colors w-fit text-gray-700 font-medium hover:bg-gray-300 ${
                 isActive
-                  ? "bg-white text-blue-700 font-semibold"
-                  : "text-gray-700 bg-transparent hover:bg-gray-300 font-medium"
+                  ? "bg-white"
+                  : " bg-transparent"
               }`}
             >
               <NavIcon icon={item.icon} color={item.color} size="sm" />

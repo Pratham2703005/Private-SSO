@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import { getSession, getUserById, getAccountById, switchActiveAccount } from "@/lib/db";
 import { getAllAccountsWithIndices } from "@/lib/account-indexing";
 import Link from "next/link";
-import { AccountLayout } from "@/components/account";
 import {
   Card,
   CardHeader,
@@ -137,7 +136,7 @@ export default async function HomePage({ params }: PageProps) {
 
   // Logged in - show account dashboard (Google-style)
   return (
-    <AccountLayout currentPath="/">
+    <>
       {/* Profile Section - Centered like Google */}
       <div className="mb-12 text-center">
         <div className="flex justify-center mb-6">
@@ -175,6 +174,6 @@ export default async function HomePage({ params }: PageProps) {
           <Button variant="primary">View all apps</Button>
         </Link>
       </Card>
-    </AccountLayout>
+    </>
   );
 }

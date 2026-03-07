@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     // Extract IDP session cookie
     const cookies = request.headers.get("cookie") || "";
-    const sessionIdMatch = cookies.match(/(__sso_session|sso_refresh_token)=([^;]+)/);
+    const sessionIdMatch = cookies.match(/(__sso_session)=([^;]+)/);
     const sessionId = sessionIdMatch ? sessionIdMatch[2] : null;
 
     if (!sessionId) {
@@ -94,12 +94,6 @@ export async function POST(request: NextRequest) {
 
       // Clear IDP session cookie
       response.cookies.set("__sso_session", "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 0,
-      });
-      response.cookies.set("sso_refresh_token", "", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",

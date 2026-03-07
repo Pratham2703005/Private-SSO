@@ -96,7 +96,7 @@
   - Do NOT destroy IDP session
 - If `mode: "global"`:
   - Mark all logons in session as revoked
-  - Clear `__sso_session` and `sso_refresh_token` cookies
+  - Clear `__sso_session` cookie
   - Return 204 No Content
 
 **Response (app mode):**

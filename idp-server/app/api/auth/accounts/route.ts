@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   try {
     // Extract IDP session cookie
     const cookies = request.headers.get("cookie") || "";
-    const sessionIdMatch = cookies.match(/(__sso_session|sso_refresh_token)=([^;]+)/);
+    const sessionIdMatch = cookies.match(/(__sso_session)=([^;]+)/);
     const sessionId = sessionIdMatch ? sessionIdMatch[2] : null;
 
     if (!sessionId) {

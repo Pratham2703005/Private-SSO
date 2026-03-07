@@ -456,7 +456,7 @@
      - Client A shows login page
      - Client B **also** shows login page (global session destroyed)
      - Open Developer Tools:
-       - Check cookies: `__sso_session` and `sso_refresh_token` cleared
+       - Check cookie: `__sso_session` cleared
        - All IDP cookies gone
 
 3. Try to access widget:

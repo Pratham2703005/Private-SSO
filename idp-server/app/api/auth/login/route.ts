@@ -147,17 +147,6 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
-    // Set refresh token in HttpOnly cookie
-    response.cookies.set({
-      name: "sso_refresh_token",
-      value: refreshToken,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-      path: "/",
-    });
-
     // Store account ID in idp_jar cookie (for widget to remember logged-in accounts)
     // This is a Google-style "account jar" - persists across logout so widget can show "Signed out" state
     // Format: comma-separated account IDs only (no PII, small cookie size)

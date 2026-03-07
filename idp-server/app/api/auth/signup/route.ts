@@ -125,17 +125,6 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
 
-    // Set refresh token in HttpOnly cookie
-    response.cookies.set({
-      name: "sso_refresh_token",
-      value: refreshToken,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-      path: "/",
-    });
-
     // Store account ID in idp_jar cookie (for widget to remember logged-in accounts)
     const existingJar = request.cookies.get("idp_jar")?.value || "";
     const jarIds = existingJar ? existingJar.split(",").filter(Boolean) : [];
