@@ -272,25 +272,32 @@ export async function GET() {
       console.log('[AccountSwitcher] Session updated, refreshing button state');
       var isOnClient = window.location.origin !== IDP_ORIGIN;
       if (isOnClient) {
-        fetch('/api/me', { credentials: 'include' })
-          .then(function(r) { return r.json(); })
-          .then(function(data) {
-            if (data.authenticated && data.user) {
-              currentAccountState = {
-                hasActiveSession: true,
-                activeAccountPreview: {
-                  name: data.user.name || '?',
-                  email: data.user.email || '',
-                  avatarUrl: data.user.avatar_url || null
-                },
-                dataLoaded: true
-              };
-            } else {
-              currentAccountState = { hasActiveSession: false, activeAccountPreview: null, dataLoaded: true };
-            }
-            updateButtonAppearance();
-          })
-          .catch(function() {});
+        // Delay: page.tsx also calls /api/me on sessionUpdate. Two concurrent calls
+        // can race on CSRF token rotation, causing one to fail.
+        // Let page.tsx's call complete first, then refresh the button.
+        setTimeout(function() {
+          fetch('/api/me', { credentials: 'include' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (data.authenticated && data.user) {
+                currentAccountState = {
+                  hasActiveSession: true,
+                  activeAccountPreview: {
+                    name: data.user.name || '?',
+                    email: data.user.email || '',
+                    avatarUrl: data.user.avatar_url || null
+                  },
+                  dataLoaded: true
+                };
+              } else {
+                currentAccountState = { hasActiveSession: false, activeAccountPreview: null, dataLoaded: true };
+              }
+              updateButtonAppearance();
+            })
+            .catch(function(err) {
+              console.log('[AccountSwitcher] sessionUpdate /api/me failed:', err);
+            });
+        }, 800);
       }
       // Don't return — let other listeners (client page.tsx) also handle this
     }
@@ -511,7 +518,6 @@ export async function GET() {
 
     const state = currentAccountState;
     const buttonSize = isIntegratedMode ? '40px' : '44px';
-    const innerSize = isIntegratedMode ? '36px' : '40px';
 
     // === SKELETON MODE: data not yet loaded — show pulsing placeholder ===
     if (!state.dataLoaded) {
@@ -573,12 +579,12 @@ export async function GET() {
         img.onerror = function() {
           // Fallback to initial if image fails
           button.innerHTML = '';
-          renderInitialAvatar(button, preview.name, innerSize);
+          renderInitialAvatar(button, preview.name);
         };
         button.appendChild(img);
       } else {
         // Gradient initial avatar
-        renderInitialAvatar(button, preview.name, innerSize);
+        renderInitialAvatar(button, preview.name);
       }
       console.log('[AccountSwitcher] Button updated to avatar:', preview.name);
     } else {
@@ -621,13 +627,9 @@ export async function GET() {
 
   // Render a gradient circle with the user's initial inside the button
   // Uses theme-matched gradient colors (injected at serve time)
-  function renderInitialAvatar(btn, name, size) {
+  // NOTE: Does NOT set width/height — caller's cssText already sets buttonSize
+  function renderInitialAvatar(btn, name) {
     btn.style.background = 'linear-gradient(135deg, ' + AVATAR_GRADIENT_FROM + ' 0%, ' + AVATAR_GRADIENT_TO + ' 100%)';
-    btn.style.overflow = 'hidden';
-    btn.style.padding = '0';
-    btn.style.borderRadius = '50%';
-    btn.style.width = size;
-    btn.style.height = size;
     var initial = document.createElement('span');
     initial.textContent = (name || '?').charAt(0).toUpperCase();
     initial.style.cssText = 'font-size: 18px; font-weight: 600; color: white; line-height: 1; user-select: none;';

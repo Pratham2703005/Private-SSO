@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomBytes } from "crypto";
 import { storeState } from "@/lib/state-store";
 
-const IDP_SERVER = process.env.NEXT_PUBLIC_IDP_SERVER || "http://localhost:3000";
-const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID || "client-c";
-const REDIRECT_URI = process.env.NEXT_PUBLIC_REDIRECT_URI || "http://localhost:3003/api/auth/callback";
+const IDP_SERVER = process.env.NEXT_PUBLIC_IDP_SERVER!;
+const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID!;
+const REDIRECT_URI = process.env.NEXT_PUBLIC_REDIRECT_URI!;
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,7 +18,6 @@ export async function GET(request: NextRequest) {
     const state = Array.from(crypto.getRandomValues(new Uint8Array(32)))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
-    storeState(state);
 
     // Generate PKCE
     const verifier = randomBytes(32).toString("base64url");
@@ -50,10 +49,13 @@ export async function GET(request: NextRequest) {
 
     console.log("[AuthStart] 🔗 Authorize URL built");
 
-    // Create response with redirect URL
+    // Create response with authorize URL JSON
     const response = NextResponse.json({
       url: authorizeUrl.toString(),
     });
+
+    // Store CSRF state in signed HttpOnly cookie (production-safe: survives instance restarts/load balancing)
+    storeState(state, response);
 
     // ✅ Store PKCE verifier in HttpOnly cookie (secure, XSS-safe)
     response.cookies.set({
@@ -66,7 +68,7 @@ export async function GET(request: NextRequest) {
       path: "/",
     });
 
-    console.log("[AuthStart] 🍪 pkce_verifier cookie set (HttpOnly, 5 min TTL)");
+    console.log("[AuthStart] 🍪 OAuth state + PKCE cookies set");
 
     return response;
   } catch (error) {

@@ -27,7 +27,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <Script
-          src="http://localhost:3000/api/widget.js"
+          src={`${process.env.NEXT_PUBLIC_IDP_SERVER}/api/widget.js`}
           strategy="afterInteractive"
         />
       </head>

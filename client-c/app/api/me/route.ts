@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const IDP_SERVER = process.env.NEXT_PUBLIC_IDP_SERVER || "http://localhost:3000";
+const IDP_SERVER = process.env.NEXT_PUBLIC_IDP_SERVER;
 
 /**
  * GET /api/me

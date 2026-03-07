@@ -11,35 +11,54 @@ export interface SessionData {
   issuedAt: number;
 }
 
+interface ApiMeResponse {
+  authenticated: boolean;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  activeAccountId?: string;
+  iat?: number;
+}
+
 export default function Home() {
   const [session, setSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
 
-  // Fetch session from /api/me (server-side validation)
+  // Single source of truth for session fetch logic
+  const performSessionFetch = async () => {
+    const response = await fetch('/api/me');
+    if (!response.ok) {
+      throw new Error('Not authenticated');
+    }
+    return response.json();
+  };
+
+  // Process and store session data
+  const processSessionData = (data: ApiMeResponse) => {
+    console.log('[Home] Session data from /api/me:', JSON.stringify(data, null, 2));
+    if (data.authenticated && data.user) {
+      setSession({
+        sessionId: data.activeAccountId || 'unknown',
+        userId: data.user.id,
+        userName: data.user.name,
+        email: data.user.email,
+        issuedAt: (data.iat || 0) * 1000,
+      });
+    } else {
+      setSession(null);
+    }
+  };
+
+  // Wrapper that handles loading state (used by event handlers, not initial mount)
   const fetchSession = (silent = false) => {
     if (!silent) {
       setLoading(true);
     }
-    fetch('/api/me')
-      .then(res => {
-        if (res.ok) return res.json();
-        throw new Error('Not authenticated');
-      })
-      .then(data => {
-        console.log('[Home] Session data from /api/me:', JSON.stringify(data, null, 2));
-        if (data.authenticated && data.user) {
-          setSession({
-            sessionId: data.activeAccountId || 'unknown',
-            userId: data.user.id,
-            userName: data.user.name,
-            email: data.user.email,
-            issuedAt: (data.iat || 0) * 1000,
-          });
-        } else {
-          setSession(null);
-        }
-      })
+    performSessionFetch()
+      .then(processSessionData)
       .catch(() => {
         console.log('[Home] Session invalid or expired, clearing');
         setSession(null);
@@ -51,29 +70,14 @@ export default function Home() {
       });
   };
 
-  // Initial fetch on component mount
+  // Initial fetch on component mount (no loading state update to avoid React warning)
   useEffect(() => {
     let mounted = true;
 
-    fetch('/api/me')
-      .then(res => {
-        if (res.ok) return res.json();
-        throw new Error('Not authenticated');
-      })
+    performSessionFetch()
       .then(data => {
         if (!mounted) return;
-        console.log('[Home] Session data from /api/me:', JSON.stringify(data, null, 2));
-        if (data.authenticated && data.user) {
-          setSession({
-            sessionId: data.activeAccountId || 'unknown',
-            userId: data.user.id,
-            userName: data.user.name,
-            email: data.user.email,
-            issuedAt: (data.iat || 0) * 1000,
-          });
-        } else {
-          setSession(null);
-        }
+        processSessionData(data);
       })
       .catch(() => {
         if (!mounted) return;
@@ -194,7 +198,8 @@ export default function Home() {
         setSwitching(false);
         fetchSession(true);
         
-        // Show success toast for account switch
+        // Clear any existing toasts and show success message
+        toast.closeAll();
         toast.success({
           message: 'Account switched successfully!',
           robotVariant: 'wave',

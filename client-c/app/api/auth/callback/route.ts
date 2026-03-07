@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { validateState } from "@/lib/state-store";
 
-const IDP_SERVER = process.env.NEXT_PUBLIC_IDP_SERVER || "http://localhost:3000";
-const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID || "client-c";
-const REDIRECT_URI =
-  process.env.NEXT_PUBLIC_REDIRECT_URI || "http://localhost:3003/api/auth/callback";
+const IDP_SERVER = process.env.NEXT_PUBLIC_IDP_SERVER;
+const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID;
+const REDIRECT_URI = process.env.NEXT_PUBLIC_REDIRECT_URI;
 
 /**
  * GET /api/auth/callback
@@ -27,8 +26,13 @@ export async function GET(request: NextRequest) {
     const code = searchParams.get("code");
     const state = searchParams.get("state");
 
-    // Validate CSRF state
-    if (!state || !validateState(state)) {
+    // Create response early so we can set/delete cookies
+    const redirectResponse = NextResponse.redirect(
+      new URL("/", request.nextUrl.origin)
+    );
+
+    // Validate CSRF state (production-safe: signed cookie)
+    if (!state || !validateState(state, request, redirectResponse)) {
       return NextResponse.redirect(
         new URL("/?error=csrf_validation_failed", request.nextUrl.origin)
       );
@@ -70,10 +74,8 @@ export async function GET(request: NextRequest) {
 
     const tokens = await tokenResponse.json();
     
-    // Create response that redirects to home
-    const response = NextResponse.redirect(
-      new URL("/", request.nextUrl.origin)
-    );
+    // Use the redirectResponse we created earlier
+    const response = redirectResponse;
 
     // Generate opaque session ID (NOT tied to tokens, just a reference)
     const sessionId = randomBytes(32).toString("hex");

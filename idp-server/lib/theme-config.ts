@@ -341,7 +341,7 @@ export const THEMES = {
 } as const;
 
 // ⚡ CHANGE THEME HERE - Just update this line to switch themes
-export const ACTIVE_THEME: WidgetTheme = THEMES.googleClassic;
+export const ACTIVE_THEME: WidgetTheme = THEMES.monochromeProfessional;
 
 // Helper function to get theme classes
 export const getThemeClasses = () => ACTIVE_THEME;

@@ -86,11 +86,10 @@ class WidgetManager {
   private widgetOrigin: string;
   private pendingRequests = new Map<string, (msg: WidgetMessage) => void>();
   private allowedWidgetOrigins = [
-    "http://localhost:3000",
-    "https://idp.com",
+    process.env.NEXT_PUBLIC_IDP_ORIGIN,
   ];
 
-  constructor(widgetOrigin: string = "http://localhost:3000") {
+  constructor(widgetOrigin: string = process.env.NEXT_PUBLIC_IDP_ORIGIN!) {
     this.widgetOrigin = widgetOrigin;
   }
 
@@ -188,7 +187,7 @@ class WidgetManager {
         console.log("[Client] Account switched:", msg.payload?.activeAccountId);
         // Account switched on IDP - client session must be refreshed via OAuth re-auth
         // This ensures app_session_c matches IDP's active_account_id
-        this.triggerAccountSwitchReauth(msg.payload?.accountId);
+        this.triggerAccountSwitchReauth(msg.payload?.accountId as string);
         break;
 
       case "AUTH_STATE": {
