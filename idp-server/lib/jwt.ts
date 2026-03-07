@@ -14,6 +14,7 @@ export function generateAccessToken(
   name: string,
   accountId: string
 ): string {
+  console.log("[JWT] Generating access token for userId:", userId, "accountId:", accountId);
   const payload: AccessTokenPayload = {
     sub: userId,
     email,
@@ -34,6 +35,7 @@ export function generateIdToken(
   name: string,
   accountId: string
 ): string {
+  console.log("[JWT] Generating ID token for userId:", userId);
   const payload: IdTokenPayload = {
     sub: userId,
     email,
@@ -53,6 +55,7 @@ export function generateRefreshToken(
   clientId: string,
   jti: string
 ): string {
+  console.log("[JWT] Generating refresh token for userId:", userId, "accountId:", accountId);
   const payload: RefreshTokenPayload = {
     sub: userId,
     accountId,
@@ -68,6 +71,7 @@ export function generateRefreshToken(
 }
 
 export function verifyAccessToken(token: string): AccessTokenPayload | null {
+  console.log("[JWT] Verifying access token");
   try {
     const decoded = jwt.verify(token, publicKey, {
       algorithms: ["RS256"],
@@ -79,6 +83,7 @@ export function verifyAccessToken(token: string): AccessTokenPayload | null {
 }
 
 export function verifyRefreshToken(token: string): RefreshTokenPayload | null {
+  console.log("[JWT] Verifying refresh token");
   try {
     const decoded = jwt.verify(token, publicKey, {
       algorithms: ["RS256"],
@@ -90,6 +95,7 @@ export function verifyRefreshToken(token: string): RefreshTokenPayload | null {
 }
 
 export function decodeToken<T>(token: string): T | null {
+  console.log("[JWT] Decoding token without verification");
   try {
     const decoded = jwt.decode(token);
     return decoded as T;

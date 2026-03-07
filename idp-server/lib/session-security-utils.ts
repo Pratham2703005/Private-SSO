@@ -137,7 +137,10 @@ export async function validateCSRFToken(req: NextRequest): Promise<{
     }
 
     // Validate they match (must be identical for CSRF check to pass)
-    const isValid = cookieToken === bodyToken;
+    const isValid = crypto.timingSafeEqual(
+      Buffer.from(cookieToken),
+      Buffer.from(bodyToken)
+    );
 
     return {
       isValid,

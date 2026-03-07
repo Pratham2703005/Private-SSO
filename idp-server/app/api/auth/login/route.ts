@@ -70,18 +70,15 @@ export async function POST(request: NextRequest) {
       const existingSession = await getSession(existingSessionId);
       
       if (existingSession) {
-        console.log("[Login] ✅ Reusing existing IDP session for multi-account login");
         // Add this account to the session's logons and make it active
         await addAccountToSession(existingSessionId, primaryAccount.id);
         sessionId = existingSessionId;
       } else {
         // Session expired/invalid - create new one
-        console.log("[Login] Session expired, creating new session");
         sessionId = await createSession(user.id, primaryAccount.id);
       }
     } else {
       // No session exists - create new one
-      console.log("[Login] Creating new IDP session");
       sessionId = await createSession(user.id, primaryAccount.id);
     }
 
@@ -150,22 +147,16 @@ export async function POST(request: NextRequest) {
     // This is a Google-style "account jar" - persists across logout so widget can show "Signed out" state
     // Format: comma-separated account IDs only (no PII, small cookie size)
     const existingJar = request.cookies.get("idp_jar")?.value || "";
-    console.log('[Login] Existing idp_jar:', existingJar ? `"${existingJar}"` : 'empty');
     
     const jarIds = existingJar ? existingJar.split(",").filter(Boolean) : [];
-    console.log('[Login] Parsed jar IDs:', jarIds);
 
     // Add account ID if not already in jar
     if (!jarIds.includes(primaryAccount.id)) {
       jarIds.push(primaryAccount.id);
-      console.log('[Login] Added new account ID to jar:', primaryAccount.id);
-    } else {
-      console.log('[Login] Account ID already in jar:', primaryAccount.id);
     }
 
     // Keep only last 10 accounts to prevent cookie bloat
     const trimmedJar = jarIds.slice(-10).join(",");
-    console.log('[Login] Final trimmed jar (', jarIds.length, 'accounts):', `"${trimmedJar}"`);
 
     response.cookies.set({
       name: "idp_jar",
@@ -176,11 +167,9 @@ export async function POST(request: NextRequest) {
       maxAge: 365 * 24 * 60 * 60, // 1 year - persist across sessions
       path: "/",
     });
-    console.log('[Login] idp_jar cookie set successfully');
 
     return setMasterCookie(response, sessionId);
-  } catch (error) {
-    console.error("Login error:", error);
+  } catch {
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 }

@@ -99,7 +99,7 @@ export async function getAllAccountsWithIndices(
         id: logon.account_id,
         email: logon.user_accounts?.email ?? 'unknown',
         name: logon.user_accounts?.name ?? 'Unknown',
-        avatar_url: (logon.user_accounts as any)?.avatar_url,
+        avatar_url: (logon.user_accounts)?.avatar_url,
         isPrimary: logon.user_accounts?.is_primary ?? false,
         logged_in_at: logon.logged_in_at,
         last_active_at: logon.last_active_at,
