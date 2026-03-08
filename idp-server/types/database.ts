@@ -21,10 +21,10 @@ export type CSRFToken = Database["public"]["Tables"]["csrf_tokens"]["Row"];
 
 /**
  * SessionLogon with nested user account data (from getSessionLogons)
- * When selecting `user_accounts(id, email, name, is_primary)`, returns single object
+ * When selecting `account:account_id(...)`, returns single object
  */
 export type SessionLogonWithAllFields = SessionLogon & {
-  user_accounts: {
+  account: {
     id: string;
     email: string;
     name: string;
@@ -34,10 +34,10 @@ export type SessionLogonWithAllFields = SessionLogon & {
 
 /**
  * SessionLogon with nested user account data (from getActiveSessionLogons)
- * When selecting `user_accounts(id, email, name)`, returns single object
+ * When selecting `account:account_id(...)`, returns single object
  */
 export type SessionLogonWithAccount = SessionLogon & {
-  user_accounts: {
+  account: {
     id: string;
     email: string;
     name: string;

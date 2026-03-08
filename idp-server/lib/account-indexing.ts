@@ -5,7 +5,7 @@
  */
 
 import type { SessionLogonWithAllFields } from '@/types';
-import { getSessionLogons, getAccountById, supabase } from './db';
+import { getSessionLogons, supabase } from './db';
 
 export interface IndexedAccount {
   index: number;
@@ -97,10 +97,10 @@ export async function getAllAccountsWithIndices(
       .map((logon, accountIndex) => ({
         index: accountIndex,
         id: logon.account_id,
-        email: logon.user_accounts?.email ?? 'unknown',
-        name: logon.user_accounts?.name ?? 'Unknown',
-        avatar_url: (logon.user_accounts)?.avatar_url,
-        isPrimary: logon.user_accounts?.is_primary ?? false,
+        avatar_url: undefined,
+        email: logon.account?.email ?? 'unknown',
+        name: logon.account?.name ?? 'Unknown',
+        isPrimary: logon.account?.is_primary ?? false,
         logged_in_at: logon.logged_in_at,
         last_active_at: logon.last_active_at,
         revoked: logon.revoked,

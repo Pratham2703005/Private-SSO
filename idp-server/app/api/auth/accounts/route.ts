@@ -45,8 +45,8 @@ export async function GET(request: NextRequest) {
     // Transform logons to account list
     const accounts = logons.map((logon) => ({
       id: logon.account_id,
-      email: logon.user_accounts?.email || "unknown",
-      name: logon.user_accounts?.name || "Unknown",
+      email: logon.account?.email ?? "unknown",
+      name: logon.account?.name ?? "Unknown",
       isActive: session.active_account_id === logon.account_id,
       loggedInAt: logon.logged_in_at,
       lastActiveAt: logon.last_active_at,
@@ -57,8 +57,7 @@ export async function GET(request: NextRequest) {
       activeAccountId: session.active_account_id,
       sessionId,
     });
-  } catch (error) {
-    console.error("[/api/auth/accounts] Error:", error);
+  } catch {
     return NextResponse.json(
       { error: "Failed to get accounts" },
       { status: 500 }

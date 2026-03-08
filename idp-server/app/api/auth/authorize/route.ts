@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMasterCookie, generateState } from "@/lib/utils";
+import { getMasterCookie } from "@/lib/utils";
 import {
   getSession,
   getUserById,

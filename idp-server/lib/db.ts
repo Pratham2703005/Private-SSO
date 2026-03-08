@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import type { User, UserAccount } from "@/types/database";
+import type { User, UserAccount, SessionLogonWithAllFields, SessionLogonWithAccount } from "@/types/database";
 
 function uuidv4(): string {
   return crypto.randomUUID();
@@ -744,26 +744,33 @@ export async function addAccountToSession(
  * Get all accounts logged into this session
  * Returns all logons regardless of revocation status
  */
-export async function getSessionLogons(sessionId: string) {
+export async function getSessionLogons(sessionId: string): Promise<SessionLogonWithAllFields[]> {
   try {
     const { data, error } = await supabase
       .from("session_logons")
       .select(
         `
         id,
+        session_id,
         account_id,
         logged_in_at,
         last_active_at,
         revoked,
         revoked_at,
-        user_accounts(id, email, name, is_primary)
+        created_at,
+        account:account_id(id, email, name, is_primary)
       `
       )
       .eq("session_id", sessionId)
       .order("last_active_at", { ascending: false });
 
-    if (error) throw error;
-    return data || [];
+    if (error) {
+      console.error("[DB] Error in getSessionLogons:", error);
+      throw error;
+    }
+
+    const typedData: SessionLogonWithAllFields[] = (data || []) as unknown as SessionLogonWithAllFields[];
+    return typedData;
   } catch (error) {
     console.error("[DB] Error getting session logons:", error);
     return [];
@@ -775,26 +782,34 @@ export async function getSessionLogons(sessionId: string) {
  * Used for accounts list and finding next-active account
  * Optimized with index(session_id, revoked)
  */
-export async function getActiveSessionLogons(sessionId: string) {
+export async function getActiveSessionLogons(sessionId: string): Promise<SessionLogonWithAccount[]> {
   try {
     const { data, error } = await supabase
       .from("session_logons")
       .select(
         `
         id,
+        session_id,
         account_id,
         logged_in_at,
         last_active_at,
         revoked,
-        user_accounts(id, email, name)
+        revoked_at,
+        created_at,
+        account:account_id(id, email, name)
       `
       )
       .eq("session_id", sessionId)
       .eq("revoked", false)
       .order("last_active_at", { ascending: false });
 
-    if (error) throw error;
-    return data || [];
+    if (error) {
+      console.error("[DB] Error in getActiveSessionLogons:", error);
+      throw error;
+    }
+
+    const typedData: SessionLogonWithAccount[] = (data || []) as unknown as SessionLogonWithAccount[];
+    return typedData;
   } catch (error) {
     console.error("[DB] Error getting active session logons:", error);
     return [];
