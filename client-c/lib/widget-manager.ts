@@ -348,6 +348,7 @@ class WidgetManager {
       authorizeUrl.searchParams.append('client_id', clientId);
       authorizeUrl.searchParams.append('redirect_uri', redirectUri);
       authorizeUrl.searchParams.append('response_type', 'code');
+      authorizeUrl.searchParams.append('scope', 'openid profile email');
       authorizeUrl.searchParams.append('prompt', 'none'); // Silent auth
       if (accountId) {
         authorizeUrl.searchParams.append('account_hint', accountId);

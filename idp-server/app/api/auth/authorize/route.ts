@@ -36,9 +36,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const clientId = searchParams.get("client_id");
     const redirectUri = searchParams.get("redirect_uri");
-    const scopes = searchParams.get("scopes")!;
+    // ✅ OAuth 2.0 uses "scope" (singular), not "scopes"
+    const scope = searchParams.get("scope");
     const state = searchParams.get("state")!;
     const codeChallenge = searchParams.get("code_challenge");
+    const codeChallengeMethod = searchParams.get("code_challenge_method");
     const ttlSecondsParam = searchParams.get("ttl_seconds"); // For testing
     const ttlSeconds = ttlSecondsParam ? parseInt(ttlSecondsParam, 10) : 600; // Default 10 minutes
     const prompt = searchParams.get("prompt"); // "none" for silent auth
@@ -46,6 +48,15 @@ export async function GET(request: NextRequest) {
     if (!clientId || !redirectUri) {
       const errorResponse = NextResponse.json(
         { success: false, error: "Missing client_id or redirect_uri" },
+        { status: 400 }
+      );
+      return addCorsHeaders(errorResponse, request);
+    }
+
+    // ✅ Validate scope is present
+    if (!scope || scope.trim().length === 0) {
+      const errorResponse = NextResponse.json(
+        { success: false, error: "invalid_request", error_description: "scope parameter is required" },
         { status: 400 }
       );
       return addCorsHeaders(errorResponse, request);
@@ -79,6 +90,84 @@ export async function GET(request: NextRequest) {
     if (!isRedirectUriAllowed) {
       const errorResponse = NextResponse.json(
         { success: false, error: "invalid_redirect_uri", error_description: "Redirect URI not allowed" },
+        { status: 400 }
+      );
+      return addCorsHeaders(errorResponse, request);
+    }
+
+    // ============================================================================
+    // STAGE 2B: Validate Scopes (OIDC + OAuth 2.0 compliance)
+    // ============================================================================
+    
+    // Parse scopes from request (OAuth 2.0 uses space-separated scopes)
+    const requestedScopes = scope.split(" ").map((s) => s.trim()).filter(Boolean);
+
+    // ✅ MANDATORY: openid scope must be present (OIDC requirement)
+    if (!requestedScopes.includes("openid")) {
+      const errorResponse = NextResponse.json(
+        { success: false, error: "invalid_scope", error_description: "The 'openid' scope is mandatory" },
+        { status: 400 }
+      );
+      return addCorsHeaders(errorResponse, request);
+    }
+
+    // ✅ Validate requested scopes against client's allowed scopes
+    const allowedScopes = oauthClient.allowed_scopes
+      ? oauthClient.allowed_scopes.split(",").map((s: string) => s.trim())
+      : [];
+    
+    const invalidScopes = requestedScopes.filter((scope) => !allowedScopes.includes(scope));
+    if (invalidScopes.length > 0) {
+      const errorResponse = NextResponse.json(
+        {
+          success: false,
+          error: "invalid_scope",
+          error_description: `Client is not authorized for the following scopes: ${invalidScopes.join(", ")}`,
+        },
+        { status: 400 }
+      );
+      return addCorsHeaders(errorResponse, request);
+    }
+
+    // ✅ Validate code_challenge format (if provided) - PKCE security requirement
+    if (codeChallenge) {
+      const codeChallengeRegex = /^[A-Za-z0-9_-]{43,128}$/;
+      if (!codeChallengeRegex.test(codeChallenge)) {
+        const errorResponse = NextResponse.json(
+          {
+            success: false,
+            error: "invalid_request",
+            error_description: "Invalid code_challenge format. Must be 43-128 base64url characters",
+          },
+          { status: 400 }
+        );
+        return addCorsHeaders(errorResponse, request);
+      }
+
+      // ✅ Validate code_challenge_method - RFC 7636 only supports S256
+      if (codeChallengeMethod && codeChallengeMethod !== "S256") {
+        const errorResponse = NextResponse.json(
+          {
+            success: false,
+            error: "invalid_request",
+            error_description: "Only 'S256' code_challenge_method is supported",
+          },
+          { status: 400 }
+        );
+        return addCorsHeaders(errorResponse, request);
+      }
+    }
+
+    // ✅ Validate ttl_seconds bounds (300-3600 seconds / 5 minutes to 1 hour)
+    const MIN_TTL = 300;
+    const MAX_TTL = 3600;
+    if (ttlSeconds < MIN_TTL || ttlSeconds > MAX_TTL) {
+      const errorResponse = NextResponse.json(
+        {
+          success: false,
+          error: "invalid_request",
+          error_description: `ttl_seconds must be between ${MIN_TTL} and ${MAX_TTL} seconds`,
+        },
         { status: 400 }
       );
       return addCorsHeaders(errorResponse, request);
@@ -131,15 +220,14 @@ export async function GET(request: NextRequest) {
         }
 
         // Stage 3: Generate authorization code instead of access token
-        const scopesArray = scopes.split(",").map((s) => s.trim());
-
+        // Use the already-validated requestedScopes from STAGE 2B
         const authCode = await createAuthorizationCode(
           user.id,  // Use the user who owns the active account
           clientId,
           redirectUri,
           codeChallenge,
           state,
-          scopesArray,
+          requestedScopes,
           ttlSeconds
         );
 
@@ -182,7 +270,7 @@ export async function GET(request: NextRequest) {
     const loginUrl = new URL("/login", request.nextUrl.origin);
     loginUrl.searchParams.set("client_id", clientId);
     loginUrl.searchParams.set("redirect_uri", redirectUri);
-    loginUrl.searchParams.set("scopes", scopes);
+    loginUrl.searchParams.set("scope", scope);
     loginUrl.searchParams.set("state", state);
     
     // Preserve code_challenge if provided
@@ -191,7 +279,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Preserve code_challenge_method if provided
-    const codeChallengeMethod = searchParams.get("code_challenge_method");
     if (codeChallengeMethod) {
       loginUrl.searchParams.set("code_challenge_method", codeChallengeMethod);
     }

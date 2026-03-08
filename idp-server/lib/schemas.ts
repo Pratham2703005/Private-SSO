@@ -33,6 +33,7 @@ export interface AccessTokenPayload {
   email: string;
   name: string;
   accountId: string;
+  scopes: string[]; // OAuth 2.0 scopes for authorization
   iat: number;
 }
 
@@ -66,6 +67,45 @@ export interface AuthResponse {
     };
   };
   error?: string;
+}
+
+/**
+ * OAuth 2.0 Token Response (RFC 6749)
+ * Returned by /token endpoint for both authorization_code and refresh_token grants
+ */
+export interface TokenResponse {
+  access_token: string;
+  id_token: string;
+  refresh_token: string;
+  token_type: "Bearer";
+  expires_in: number; // seconds (3600 = 1 hour, 86400 = 1 day)
+}
+
+/**
+ * OAuth 2.0 Error Response (RFC 6749)
+ * Returned when token exchange fails
+ */
+export interface TokenErrorResponse {
+  error: string;
+  error_description?: string;
+}
+
+/**
+ * Authorization Code Object from Database
+ * Stored temporarily during code exchange flow
+ */
+export interface AuthorizationCode {
+  code: string;
+  client_id: string;
+  user_id: string;
+  redirect_uri: string;
+  code_challenge: string | null;
+  code_challenge_method: string | null;
+  scopes: string | null;
+  state: string;
+  is_redeemed: boolean;
+  created_at: string;
+  expires_at: string;
 }
 
 export interface UserProfile {

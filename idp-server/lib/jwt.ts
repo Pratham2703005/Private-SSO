@@ -12,14 +12,16 @@ export function generateAccessToken(
   userId: string,
   email: string,
   name: string,
-  accountId: string
+  accountId: string,
+  scopes: string[] = []
 ): string {
-  console.log("[JWT] Generating access token for userId:", userId, "accountId:", accountId);
+  console.log("[JWT] Generating access token for userId:", userId, "accountId:", accountId, "scopes:", scopes);
   const payload: AccessTokenPayload = {
     sub: userId,
     email,
     name,
     accountId,
+    scopes,
     iat: Math.floor(Date.now() / 1000)
   };
 

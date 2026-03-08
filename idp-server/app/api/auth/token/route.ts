@@ -10,6 +10,7 @@ import {
   rotateRefreshToken,
 } from "@/lib/db";
 import { generateAccessToken, generateIdToken } from "@/lib/jwt";
+import { TokenResponse, TokenErrorResponse } from "@/lib/schemas";
 
 /**
  * POST /api/auth/token
@@ -60,13 +61,11 @@ export async function POST(request: NextRequest) {
     // Validate required params FIRST
     if (!grant_type) {
       console.log('[Token] Missing grant_type');
-      return NextResponse.json(
-        {
-          error: "invalid_request",
-          error_description: "Missing required parameter: grant_type",
-        },
-        { status: 400 }
-      );
+      const errorResponse: TokenErrorResponse = {
+        error: "invalid_request",
+        error_description: "Missing required parameter: grant_type",
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
     // Route to appropriate grant handler
@@ -76,23 +75,19 @@ export async function POST(request: NextRequest) {
       return handleRefreshTokenGrant(body);
     } else {
       console.log('[Token] Invalid grant_type:', grant_type);
-      return NextResponse.json(
-        {
-          error: "unsupported_grant_type",
-          error_description: "Only authorization_code and refresh_token grant types are supported",
-        },
-        { status: 400 }
-      );
+      const errorResponse: TokenErrorResponse = {
+        error: "unsupported_grant_type",
+        error_description: "Only authorization_code and refresh_token grant types are supported",
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
     }
   } catch (error) {
     console.error("[Token] Error:", error);
-    return NextResponse.json(
-      {
-        error: "server_error",
-        error_description: "An error occurred during token exchange",
-      },
-      { status: 500 }
-    );
+    const errorResponse: TokenErrorResponse = {
+      error: "server_error",
+      error_description: "An error occurred during token exchange",
+    };
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 }
 
@@ -112,13 +107,23 @@ async function handleAuthorizationCodeGrant(body: {
     // Validate required params for authorization_code grant
     if (!code || !code_verifier || !client_id || !redirect_uri) {
       console.log('[Token] Missing required parameters for authorization_code grant');
-      return NextResponse.json(
-        {
-          error: "invalid_request",
-          error_description: "Missing required parameters: code, code_verifier, client_id, redirect_uri",
-        },
-        { status: 400 }
-      );
+      const errorResponse: TokenErrorResponse = {
+        error: "invalid_request",
+        error_description: "Missing required parameters: code, code_verifier, client_id, redirect_uri",
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
+    }
+
+    // ✅ RFC 7636 code_verifier format validation
+    // Valid format: 43-128 characters from [A-Za-z0-9\-._~]
+    const verifierRegex = /^[A-Za-z0-9\-._~]{43,128}$/;
+    if (!verifierRegex.test(code_verifier)) {
+      console.log('[Token] ❌ Invalid code_verifier format');
+      const errorResponse: TokenErrorResponse = {
+        error: "invalid_request",
+        error_description: "Invalid code_verifier format (must be 43-128 characters from [A-Za-z0-9-._~])",
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
     // Fetch authorization code from DB
@@ -135,13 +140,23 @@ async function handleAuthorizationCodeGrant(body: {
         code_attempted: code.substring(0, 8) + '...',
         result: authCode,
       });
-      return NextResponse.json(
-        {
-          error: "invalid_grant",
-          error_description: "Authorization code is invalid, expired, or already used",
-        },
-        { status: 400 }
-      );
+      const errorResponse: TokenErrorResponse = {
+        error: "invalid_grant",
+        error_description: "Authorization code is invalid, expired, or already used",
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
+    }
+
+    // ✅ Check if code was already redeemed (replay attack prevention)
+    if (authCode.is_redeemed) {
+      console.log('[Token] ❌ Authorization code already redeemed (possible replay attack)', {
+        code: code.substring(0, 8) + '...',
+      });
+      const errorResponse: TokenErrorResponse = {
+        error: "invalid_grant",
+        error_description: "Authorization code has already been used",
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
     console.log('[Token] ✅ Code found in database:', {
@@ -155,13 +170,11 @@ async function handleAuthorizationCodeGrant(body: {
     // Validate client_id matches
     if (authCode.client_id !== client_id) {
       console.log('[Token] ❌ Client ID mismatch. Expected:', authCode.client_id, 'Got:', client_id);
-      return NextResponse.json(
-        {
-          error: "invalid_grant",
-          error_description: "Client ID does not match authorization code",
-        },
-        { status: 400 }
-      );
+      const errorResponse: TokenErrorResponse = {
+        error: "invalid_grant",
+        error_description: "Client ID does not match authorization code",
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
     console.log('[Token] ✅ Client ID matches');
@@ -169,13 +182,11 @@ async function handleAuthorizationCodeGrant(body: {
     // Validate redirect_uri matches exactly
     if (authCode.redirect_uri !== redirect_uri) {
       console.log('[Token] ❌ Redirect URI mismatch. Expected:', authCode.redirect_uri, 'Got:', redirect_uri);
-      return NextResponse.json(
-        {
-          error: "invalid_grant",
-          error_description: "Redirect URI does not match authorization code",
-        },
-        { status: 400 }
-      );
+      const errorResponse: TokenErrorResponse = {
+        error: "invalid_grant",
+        error_description: "Redirect URI does not match authorization code",
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
     console.log('[Token] ✅ Redirect URI matches');
@@ -206,13 +217,11 @@ async function handleAuthorizationCodeGrant(body: {
 
       if (authCode.code_challenge !== computedChallenge) {
         console.log('[Token] ❌ PKCE validation failed - code_verifier does not match code_challenge');
-        return NextResponse.json(
-          {
-            error: "invalid_grant",
-            error_description: "Code verifier does not match code challenge (PKCE validation failed)",
-          },
-          { status: 400 }
-        );
+        const errorResponse: TokenErrorResponse = {
+          error: "invalid_grant",
+          error_description: "Code verifier does not match code challenge (PKCE validation failed)",
+        };
+        return NextResponse.json(errorResponse, { status: 400 });
       }
       console.log('[Token] ✅ PKCE validation passed');
     } else {
@@ -225,13 +234,11 @@ async function handleAuthorizationCodeGrant(body: {
 
     if (!user) {
       console.log('[Token] User not found');
-      return NextResponse.json(
-        {
-          error: "server_error",
-          error_description: "User not found",
-        },
-        { status: 500 }
-      );
+      const errorResponse: TokenErrorResponse = {
+        error: "server_error",
+        error_description: "User not found",
+      };
+      return NextResponse.json(errorResponse, { status: 500 });
     }
 
     const accounts = await getUserAccounts(authCode.user_id);
@@ -239,22 +246,31 @@ async function handleAuthorizationCodeGrant(body: {
 
     if (!primaryAccount) {
       console.log("[Token] No account found");
-      return NextResponse.json(
-        {
-          error: "server_error",
-          error_description: "No account found",
-        },
-        { status: 500 }
-      );
+      const errorResponse: TokenErrorResponse = {
+        error: "server_error",
+        error_description: "No account found",
+      };
+      return NextResponse.json(errorResponse, { status: 500 });
     }
 
     // Generate tokens
     console.log('[Token] Generating access_token, id_token, and refresh_token');
+    
+    // ✅ Extract scopes from authorization code (phase 3 implementation)
+    // Scopes are stored as an array in the database, not a string
+    const scopesArray = Array.isArray(authCode.scopes)
+      ? authCode.scopes
+      : authCode.scopes
+      ? authCode.scopes.split(",").map((s: string) => s.trim())
+      : [];
+    console.log('[Token] Scopes from authorization code:', scopesArray);
+    
     const accessToken = generateAccessToken(
       authCode.user_id,
       primaryAccount.email,
       primaryAccount.name,
-      primaryAccount.id
+      primaryAccount.id,
+      scopesArray
     );
 
     const idToken = generateIdToken(
@@ -279,25 +295,21 @@ async function handleAuthorizationCodeGrant(body: {
     console.log('[Token] Code marked as redeemed');
 
     console.log('[Token] Exchange successful - returning tokens');
-    return NextResponse.json(
-      {
-        access_token: accessToken,
-        id_token: idToken,
-        refresh_token: refreshTokenValue,
-        token_type: "Bearer",
-        expires_in: 86400, // 1 day in seconds
-      },
-      { status: 200 }
-    );
+    const tokenResponse: TokenResponse = {
+      access_token: accessToken,
+      id_token: idToken,
+      refresh_token: refreshTokenValue,
+      token_type: "Bearer",
+      expires_in: 86400, // 1 day in seconds
+    };
+    return NextResponse.json(tokenResponse, { status: 200 });
   } catch (error) {
     console.error("[Token] Authorization Code Grant Error:", error);
-    return NextResponse.json(
-      {
-        error: "server_error",
-        error_description: "An error occurred during token exchange",
-      },
-      { status: 500 }
-    );
+    const errorResponse: TokenErrorResponse = {
+      error: "server_error",
+      error_description: "An error occurred during token exchange",
+    };
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 }
 
@@ -315,13 +327,11 @@ async function handleRefreshTokenGrant(body: {
     // Validate required params
     if (!client_id || !refresh_token) {
       console.log('[Token] Missing required params for refresh_token grant');
-      return NextResponse.json(
-        {
-          error: "invalid_request",
-          error_description: "Missing required parameters: client_id, refresh_token",
-        },
-        { status: 400 }
-      );
+      const errorResponse: TokenErrorResponse = {
+        error: "invalid_request",
+        error_description: "Missing required parameters: client_id, refresh_token",
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
     console.log('[Token] Refresh token grant request:', {
@@ -339,13 +349,11 @@ async function handleRefreshTokenGrant(body: {
     const validation = await validateRefreshToken(refreshTokenHash);
     if (!validation.valid) {
       console.log('[Token] ❌ Invalid or expired refresh token');
-      return NextResponse.json(
-        {
-          error: "invalid_grant",
-          error_description: "Refresh token is invalid or expired",
-        },
-        { status: 400 }
-      );
+      const errorResponse: TokenErrorResponse = {
+        error: "invalid_grant",
+        error_description: "Refresh token is invalid or expired",
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
     const storedToken = validation.token;
@@ -353,13 +361,11 @@ async function handleRefreshTokenGrant(body: {
     // Validate client_id matches
     if (storedToken.client_id !== client_id) {
       console.log('[Token] ❌ Client ID mismatch for refresh token');
-      return NextResponse.json(
-        {
-          error: "invalid_grant",
-          error_description: "Client ID does not match refresh token",
-        },
-        { status: 400 }
-      );
+      const errorResponse: TokenErrorResponse = {
+        error: "invalid_grant",
+        error_description: "Client ID does not match refresh token",
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
     }
 
     console.log('[Token] ✅ Refresh token validated');
@@ -377,13 +383,11 @@ async function handleRefreshTokenGrant(body: {
 
       if (logonError || logon?.revoked) {
         console.log('[Token] ❌ Account logged out in this session');
-        return NextResponse.json(
-          {
-            error: "invalid_grant",
-            error_description: "Account was logged out in this session",
-          },
-          { status: 400 }
-        );
+        const errorResponse: TokenErrorResponse = {
+          error: "invalid_grant",
+          error_description: "Account was logged out in this session",
+        };
+        return NextResponse.json(errorResponse, { status: 400 });
       }
     }
 
@@ -391,13 +395,11 @@ async function handleRefreshTokenGrant(body: {
     const user = await getUserById(storedToken.user_id);
     if (!user) {
       console.log('[Token] User not found');
-      return NextResponse.json(
-        {
-          error: "server_error",
-          error_description: "User not found",
-        },
-        { status: 500 }
-      );
+      const errorResponse: TokenErrorResponse = {
+        error: "server_error",
+        error_description: "User not found",
+      };
+      return NextResponse.json(errorResponse, { status: 500 });
     }
 
     const accounts = await getUserAccounts(storedToken.user_id);
@@ -405,22 +407,26 @@ async function handleRefreshTokenGrant(body: {
 
     if (!primaryAccount) {
       console.log("[Token] No account found");
-      return NextResponse.json(
-        {
-          error: "server_error",
-          error_description: "No account found",
-        },
-        { status: 500 }
-      );
+      const errorResponse: TokenErrorResponse = {
+        error: "server_error",
+        error_description: "No account found",
+      };
+      return NextResponse.json(errorResponse, { status: 500 });
     }
 
     // Generate new tokens
     console.log('[Token] Generating new access_token, id_token, and refresh_token');
+    
+    // ✅ For refresh token grants, pass scopes (currently empty - enhancement: store original scopes in refresh_tokens table)
+    // TODO: In future, retrieve original scopes from refresh_tokens table in DB
+    const scopesArray: string[] = [];
+    
     const newAccessToken = generateAccessToken(
       storedToken.user_id,
       primaryAccount.email,
       primaryAccount.name,
-      primaryAccount.id
+      primaryAccount.id,
+      scopesArray
     );
 
     const newIdToken = generateIdToken(
@@ -452,24 +458,20 @@ async function handleRefreshTokenGrant(body: {
     console.log('[Token] New refresh token stored');
 
     console.log('[Token] Refresh token exchange successful - returning new tokens');
-    return NextResponse.json(
-      {
-        access_token: newAccessToken,
-        id_token: newIdToken,
-        refresh_token: newRefreshTokenValue,
-        token_type: "Bearer",
-        expires_in: 86400, // 1 day in seconds
-      },
-      { status: 200 }
-    );
+    const tokenResponse: TokenResponse = {
+      access_token: newAccessToken,
+      id_token: newIdToken,
+      refresh_token: newRefreshTokenValue,
+      token_type: "Bearer",
+      expires_in: 86400, // 1 day in seconds
+    };
+    return NextResponse.json(tokenResponse, { status: 200 });
   } catch (error) {
     console.error("[Token] Refresh Token Grant Error:", error);
-    return NextResponse.json(
-      {
-        error: "server_error",
-        error_description: "An error occurred during token refresh",
-      },
-      { status: 500 }
-    );
+    const errorResponse: TokenErrorResponse = {
+      error: "server_error",
+      error_description: "An error occurred during token refresh",
+    };
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 }

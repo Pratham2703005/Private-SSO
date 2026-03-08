@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
           "http://localhost:3001/api/auth/callback",
           "http://localhost:3001/login",
         ],
+        allowed_scopes: "openid, profile, email",
         is_active: true,
       },
       {
@@ -86,6 +87,18 @@ export async function POST(request: NextRequest) {
           "http://localhost:3002/api/auth/callback",
           "http://localhost:3002/login",
         ],
+        allowed_scopes: "openid, profile, email",
+        is_active: true,
+      },
+      {
+        client_id: "client-c-dev",
+        client_secret_hash: "test_secret_hash_c",
+        client_name: "Client C Development",
+        allowed_redirect_uris: [
+          "http://localhost:3003/api/auth/callback",
+          "http://localhost:3003/login",
+        ],
+        allowed_scopes: "openid, profile, email",
         is_active: true,
       },
       {
