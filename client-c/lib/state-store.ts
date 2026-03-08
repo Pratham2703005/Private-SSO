@@ -16,6 +16,17 @@ import { createHmac } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 const SECRET = process.env.NEXT_PUBLIC_OAUTH_STATE_SECRET!;
+const isProduction = process.env.NODE_ENV === "production";
+
+function getOauthCookieOptions(expiresInSeconds: number) {
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+    maxAge: expiresInSeconds,
+    path: "/",
+  } as const;
+}
 
 if (!process.env.NEXT_PUBLIC_OAUTH_STATE_SECRET && process.env.NODE_ENV === "production") {
   console.warn(
@@ -35,14 +46,13 @@ export function storeState(state: string, response: NextResponse, expiresInSecon
   response.cookies.set({
     name: "oauth_state",
     value: signedValue,
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: expiresInSeconds,
-    path: "/",
+    ...getOauthCookieOptions(expiresInSeconds),
   });
 
-  console.log(`[StateStore] ✅ Stored state in signed cookie: ${state.substring(0, 8)}...`);
+  console.log(
+    `[StateStore] ✅ Stored state in signed cookie: ${state.substring(0, 8)}...`,
+    `(sameSite=${isProduction ? "none" : "lax"}, secure=${isProduction})`
+  );
 }
 
 /**
@@ -92,6 +102,10 @@ export function validateState(state: string, request: NextRequest, response?: Ne
  * Delete state cookie (cleanup helper)
  */
 export function deleteState(response: NextResponse): void {
-  response.cookies.delete("oauth_state");
+  response.cookies.set({
+    name: "oauth_state",
+    value: "",
+    ...getOauthCookieOptions(0),
+  });
   console.log(`[StateStore] 🗑️  Deleted state cookie`);
 }

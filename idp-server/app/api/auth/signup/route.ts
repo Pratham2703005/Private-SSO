@@ -27,7 +27,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { email, password, name } = validation.data;
+    const { password, name } = validation.data;
+    const email = validation.data.email.trim().toLowerCase();
 
     // Check if user exists
     const existingUser = await getUserByEmail(email);

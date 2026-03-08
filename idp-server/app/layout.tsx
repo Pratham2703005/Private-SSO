@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
+import { ThemeProvider } from "./components/theme-provider";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -18,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning data-theme-loading>
       <head>
         <link
           rel="stylesheet"
@@ -44,6 +45,7 @@ export default function RootLayout({
         }}
         className={`${geistMono.variable} antialiased`}
       >
+        <ThemeProvider />
         {children}
       </body>
     </html>

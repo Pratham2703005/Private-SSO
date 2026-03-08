@@ -124,9 +124,19 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
     }
   };
 
-  // Handle add account — force login page (not auto-approve)
+  // Handle add account — force create account page
   const handleAddAccount = (): void => {
-    notifyParent('startAuth', { prompt: 'login' });
+    const idpOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+    const parentOrigin = parentOriginRef.current;
+    const isOnIdp = parentOrigin === idpOrigin;
+
+    if (isOnIdp) {
+      const signupUrl = new URL('/signup', idpOrigin);
+      notifyParent('navigate', { url: signupUrl.toString() });
+      return;
+    }
+
+    notifyParent('startAuth', { prompt: 'signup' });
   };
 
   // Listen for session updates from parent app

@@ -176,9 +176,9 @@ export async function GET(request: NextRequest) {
     // Check for master cookie (existing session)
     const sessionId = getMasterCookie(request);
 
-    // prompt=login means the user explicitly wants the login page (re-auth, add account)
-    // Skip auto-approval even if there's a valid session
-    if (prompt === 'login') {
+    // prompt=login/signup means the user explicitly wants an auth screen.
+    // Skip auto-approval even if there's a valid session.
+    if (prompt === 'login' || prompt === 'signup') {
     } else if (sessionId) {
       // User is logged in, fetch session
       const session = await getSession(sessionId);
@@ -266,30 +266,31 @@ export async function GET(request: NextRequest) {
       return addCorsHeaders(errorResponse, request);
     }
     
-    // Redirect to login with return params (including code_challenge for PKCE)
-    const loginUrl = new URL("/login", request.nextUrl.origin);
-    loginUrl.searchParams.set("client_id", clientId);
-    loginUrl.searchParams.set("redirect_uri", redirectUri);
-    loginUrl.searchParams.set("scope", scope);
-    loginUrl.searchParams.set("state", state);
+    // Redirect to login/signup with return params (including code_challenge for PKCE)
+    const authPagePath = prompt === 'signup' ? '/signup' : '/login';
+    const authUrl = new URL(authPagePath, request.nextUrl.origin);
+    authUrl.searchParams.set("client_id", clientId);
+    authUrl.searchParams.set("redirect_uri", redirectUri);
+    authUrl.searchParams.set("scope", scope);
+    authUrl.searchParams.set("state", state);
     
     // Preserve code_challenge if provided
     if (codeChallenge) {
-      loginUrl.searchParams.set("code_challenge", codeChallenge);
+      authUrl.searchParams.set("code_challenge", codeChallenge);
     }
 
     // Preserve code_challenge_method if provided
     if (codeChallengeMethod) {
-      loginUrl.searchParams.set("code_challenge_method", codeChallengeMethod);
+      authUrl.searchParams.set("code_challenge_method", codeChallengeMethod);
     }
 
     // Pass login_hint (email) if provided
     const loginHint = searchParams.get("login_hint");
     if (loginHint) {
-      loginUrl.searchParams.set("login_hint", loginHint);
+      authUrl.searchParams.set("login_hint", loginHint);
     }
 
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(authUrl);
   } catch (error) {
     console.error("Authorize error:", error);
     const errorResponse = NextResponse.json(

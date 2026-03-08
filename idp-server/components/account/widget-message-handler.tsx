@@ -41,8 +41,15 @@ export function WidgetMessageHandler() {
         return;
       }
 
-      // startAuth on IDP: just redirect to login page (no OAuth needed, we ARE the IDP)
+      // startAuth on IDP: redirect to the requested auth page (no OAuth needed, we ARE the IDP)
       if (type === 'startAuth') {
+        const prompt = event.data.prompt;
+
+        if (prompt === 'signup') {
+          window.location.href = '/signup';
+          return;
+        }
+
         const email = event.data.email ? `?email=${encodeURIComponent(event.data.email)}` : '';
         window.location.href = `/login${email}`;
         return;

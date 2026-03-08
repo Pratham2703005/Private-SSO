@@ -5,6 +5,7 @@ import { storeState } from "@/lib/state-store";
 const IDP_SERVER = process.env.NEXT_PUBLIC_IDP_SERVER!;
 const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID!;
 const REDIRECT_URI = process.env.NEXT_PUBLIC_REDIRECT_URI!;
+const isProduction = process.env.NODE_ENV === "production";
 
 export async function GET(request: NextRequest) {
   try {
@@ -62,13 +63,15 @@ export async function GET(request: NextRequest) {
       name: "pkce_verifier",
       value: verifier,
       httpOnly: true,  // ✅ SECURE - not accessible to JS
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       maxAge: 300, // 5 minutes
       path: "/",
     });
 
-    console.log("[AuthStart] 🍪 OAuth state + PKCE cookies set");
+    console.log(
+      `[AuthStart] 🍪 OAuth state + PKCE cookies set (sameSite=${isProduction ? "none" : "lax"}, secure=${isProduction})`
+    );
 
     return response;
   } catch (error) {
