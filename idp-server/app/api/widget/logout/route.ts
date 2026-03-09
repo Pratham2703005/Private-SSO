@@ -149,21 +149,21 @@ export async function POST(request: NextRequest) {
       console.log('[Widget] /logout: App logout requested');
 
       // Try to determine client origin from request headers
-      // In production, you might validate this against registered clients
+      // Use allowlist-based matching instead of contains() check
       const origin = request.headers.get('origin');
       const referer = request.headers.get('referer');
 
       console.log('[Widget] /logout: Request origin:', origin);
       console.log('[Widget] /logout: Request referer:', referer);
 
-      // Default to client-a for now (in production, derive from origin)
-      // For iframe requests, origin will be the client domain
-      let logoutUrl = CLIENT_LOGOUT_ENDPOINTS['client-a'];
+      // Find the client by matching origin against allowlist (exact match)
+      const client = origin ? WIDGET_ALLOWED_CLIENTS.find(c => c.origin === origin) : null;
+      const clientId = client?.clientId || 'client-a'; // Default to client-a
+      let logoutUrl = CLIENT_LOGOUT_ENDPOINTS[clientId];
 
-      if (origin && origin.includes('localhost:3002')) {
-        logoutUrl = CLIENT_LOGOUT_ENDPOINTS['client-b'];
-      } else if (origin && origin.includes('localhost:3001')) {
-        logoutUrl = CLIENT_LOGOUT_ENDPOINTS['client-a'];
+      if (!logoutUrl) {
+        // Fallback to first registered endpoint if not found
+        logoutUrl = Object.values(CLIENT_LOGOUT_ENDPOINTS)[0] || 'http://localhost:3001/api/auth/logout-app';
       }
 
       const response: LogoutResponse = {
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
       };
 
       console.log(
-        `[Widget] /logout (app): Returning logout URL: ${logoutUrl}`
+        `[Widget] /logout (app): Origin ${origin} matched to client ${clientId}, returning logout URL: ${logoutUrl}`
       );
 
       return NextResponse.json(response, { status: 200 });

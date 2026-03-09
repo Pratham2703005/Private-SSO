@@ -4,19 +4,15 @@ import { useLayoutEffect } from 'react';
 
 export function ThemeProvider() {
   useLayoutEffect(() => {
-    // Ensure HTML element exists
+    // Handle theme changes after hydration (e.g., from theme switcher)
     const html = document.documentElement;
+    const theme = localStorage.getItem('auth-theme');
     
-    // Apply theme before first paint
-    const theme = localStorage.getItem('auth-theme') || 'light';
-    if (theme === 'system') {
+    if (theme === 'system' || !theme) {
       html.removeAttribute('data-theme');
     } else {
       html.setAttribute('data-theme', theme);
     }
-    
-    // Remove loading state to allow transitions
-    html.removeAttribute('data-theme-loading');
   }, []);
 
   return null;

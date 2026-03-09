@@ -16,14 +16,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getMasterCookie } from '@/lib/utils';
 import { getSession, supabase } from '@/lib/db';
 import { getAllAccountsWithIndices, getIndexByAccountId } from '@/lib/account-indexing';
+import { addWidgetCorsHeaders } from '@/lib/cors-utils';
 
-interface AccountItem {
-  index: number;
-  id: string;
-  email: string;
-  name: string;
-  avatar_url: string | null;
-  isPrimary: boolean;
+
+export async function OPTIONS(request: NextRequest) {
+  return addWidgetCorsHeaders(new NextResponse(null, { status: 200 }), request);
 }
 
 export async function GET(request: NextRequest) {
@@ -59,7 +56,7 @@ export async function GET(request: NextRequest) {
             `[Widget] /accounts: Returning ${accounts.length} active accounts, active index: ${activeIndex}`
           );
 
-          return NextResponse.json({ accounts, activeIndex }, { status: 200 });
+          return addWidgetCorsHeaders(NextResponse.json({ accounts, activeIndex }, { status: 200 }), request);
         }
       }
     }
@@ -70,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     if (!jarCookie) {
       console.log('[Widget] /accounts: No idp_jar cookie found');
-      return NextResponse.json({ accounts: [], activeIndex: -1 }, { status: 200 });
+      return addWidgetCorsHeaders(NextResponse.json({ accounts: [], activeIndex: -1 }, { status: 200 }), request);
     }
 
     // Parse account IDs from jar cookie
@@ -78,7 +75,7 @@ export async function GET(request: NextRequest) {
 
     if (accountIds.length === 0) {
       console.log('[Widget] /accounts: idp_jar cookie is empty');
-      return NextResponse.json({ accounts: [], activeIndex: -1 }, { status: 200 });
+      return addWidgetCorsHeaders(NextResponse.json({ accounts: [], activeIndex: -1 }, { status: 200 }), request);
     }
 
     console.log('[Widget] /accounts: Fetching remembered accounts for IDs:', accountIds);
@@ -91,12 +88,12 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('[Widget] /accounts: Failed to fetch from DB:', error);
-      return NextResponse.json({ accounts: [], activeIndex: -1 }, { status: 200 });
+      return addWidgetCorsHeaders(NextResponse.json({ accounts: [], activeIndex: -1 }, { status: 200 }), request);
     }
 
     if (!accountsData || accountsData.length === 0) {
       console.log('[Widget] /accounts: No accounts found in DB');
-      return NextResponse.json({ accounts: [], activeIndex: -1 }, { status: 200 });
+      return addWidgetCorsHeaders(NextResponse.json({ accounts: [], activeIndex: -1 }, { status: 200 }), request);
     }
 
     // Format accounts with index (order matches jar)
@@ -116,12 +113,15 @@ export async function GET(request: NextRequest) {
 
     console.log('[Widget] /accounts: Returning', accounts.length, 'remembered accounts (signed out state)');
 
-    return NextResponse.json({ accounts, activeIndex: -1 }, { status: 200 });
+    return addWidgetCorsHeaders(NextResponse.json({ accounts, activeIndex: -1 }, { status: 200 }), request);
   } catch (error) {
     console.error('[Widget] /accounts error:', error);
-    return NextResponse.json(
-      { accounts: [], activeIndex: -1 },
-      { status: 200 }
+    return addWidgetCorsHeaders(
+      NextResponse.json(
+        { accounts: [], activeIndex: -1 },
+        { status: 200 }
+      ),
+      request
     );
   }
 }

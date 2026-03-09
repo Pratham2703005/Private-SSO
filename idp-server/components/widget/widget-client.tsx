@@ -238,6 +238,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
   const activeAccount = displayAccounts.length > 0 ? displayAccounts[0] : null;
   const otherAccounts = displayAccounts.slice(1);
   const hasAnyActiveSession = displayAccounts.some(a => a.accountState === 'active' || a.accountState === 'can_switch');
+  const signedInAccountsCount = displayAccounts.filter(a => a.accountState === 'active' || a.accountState === 'can_switch').length;
 
   // Track last sent state to avoid spamming parent with duplicate messages
   const lastSentStateRef = useRef<string>('');
@@ -245,23 +246,36 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
   // Notify parent of account state changes (for widget button rendering)
   // Sends minimal preview data only — no full account list
   useEffect(() => {
-    const hasActiveSession = !!activeAccount;
-    const preview = hasActiveSession
-      ? { name: activeAccount.name, email: activeAccount.email, avatarUrl: activeAccount.avatar_url || null }
+    const hasActiveSession = displayAccounts.some(
+      (account) => account.accountState === 'active' || account.accountState === 'can_switch'
+    );
+    const hasRememberedAccounts = displayAccounts.length > 0;
+    const previewAccount = activeAccount || displayAccounts[0] || null;
+    const preview = previewAccount
+      ? {
+          name: previewAccount.name,
+          email: previewAccount.email,
+          avatarUrl: previewAccount.avatar_url || null,
+        }
       : null;
 
     // Shallow compare: only send if state actually changed
-    const stateKey = JSON.stringify({ hasActiveSession, preview });
+    const stateKey = JSON.stringify({ hasActiveSession, hasRememberedAccounts, preview });
     if (stateKey === lastSentStateRef.current) return;
     lastSentStateRef.current = stateKey;
 
     notifyParent('accountStateChanged', {
       hasActiveSession,
+      hasRememberedAccounts,
       dataLoaded: true,
       activeAccountPreview: preview,
     });
 
-    console.log('[WidgetClient] Sent accountStateChanged:', { hasActiveSession, preview: preview?.name || null });
+    console.log('[WidgetClient] Sent accountStateChanged:', {
+      hasActiveSession,
+      hasRememberedAccounts,
+      preview: preview?.name || null,
+    });
   }, [activeAccount, displayAccounts]);
 
   // No accounts at all (no jar, no session) — just show "Add account"
@@ -416,11 +430,11 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
       )}
 
       {/* Actions */}
-      <div className="px-6 py-4 space-y-1">
+      <div className="">
         {/* Add another account */}
         <button
           onClick={handleAddAccount}
-          className={`w-full px-4 py-3 flex items-center gap-3 ${theme.colors.hoverBackground} transition-colors duration-150 text-left rounded-lg`}
+          className={`w-full px-10 py-4.5 flex items-center gap-3 ${theme.colors.hoverBackground} transition-colors duration-150 text-left`}
           type="button"
         >
           <svg
@@ -441,7 +455,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
         {activeAccount.accountState === 'active' && (
           <button
             onClick={handleLogoutCurrent}
-            className={`w-full px-4 py-3 flex items-center gap-3 ${theme.colors.signoutHover} transition-colors duration-150 text-left rounded-lg`}
+            className={`w-full px-10 py-4.5 flex items-center gap-3 ${theme.colors.signoutHover} transition-colors duration-150 text-left`}
             type="button"
           >
             <svg
@@ -459,11 +473,11 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
           </button>
         )}
 
-        {/* Sign out of ALL accounts - only when any session is active */}
-        {hasAnyActiveSession && (
+        {/* Sign out of ALL accounts - only when there are multiple signed-in accounts */}
+        {hasAnyActiveSession && signedInAccountsCount > 1 && (
           <button
             onClick={handleLogoutGlobal}
-            className={`w-full px-4 py-3 flex items-center gap-3 ${theme.colors.signoutHover} transition-colors duration-150 text-left rounded-lg`}
+            className={`w-full px-10 py-4.5 flex items-center gap-3 ${theme.colors.signoutHover} transition-colors duration-150 text-left`}
             type="button"
           >
             <svg

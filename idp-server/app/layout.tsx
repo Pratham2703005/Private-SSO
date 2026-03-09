@@ -19,11 +19,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning data-theme-loading>
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const theme = localStorage.getItem('auth-theme');
+                if (theme === 'system' || !theme) {
+                  document.documentElement.removeAttribute('data-theme');
+                } else {
+                  document.documentElement.setAttribute('data-theme', theme);
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=optional"
         />
         <link
           rel="preconnect"

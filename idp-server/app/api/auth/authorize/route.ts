@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMasterCookie } from "@/lib/utils";
+import { addWidgetCorsHeaders } from "@/lib/cors-utils";
 import {
   getSession,
   getUserById,
@@ -9,26 +10,10 @@ import {
   createAuthorizationCode,
 } from "@/lib/db";
 
-// CORS headers for cross-origin SSO requests
-function addCorsHeaders(response: NextResponse, request: NextRequest): NextResponse {
-  const origin = request.headers.get("origin");
-  
-  // Allow requests from localhost and any port (for development)
-  // In production, you should whitelist specific domains
-  if (origin && origin.includes("localhost")) {
-    response.headers.set("Access-Control-Allow-Origin", origin);
-    response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    response.headers.set("Access-Control-Allow-Headers", "Content-Type");
-    response.headers.set("Access-Control-Allow-Credentials", "true");
-  }
-  
-  return response;
-}
-
 // Handle CORS preflight requests
 export async function OPTIONS(request: NextRequest) {
   const response = new NextResponse(null, { status: 200 });
-  return addCorsHeaders(response, request);
+  return addWidgetCorsHeaders(response, request);
 }
 
 export async function GET(request: NextRequest) {
@@ -50,7 +35,7 @@ export async function GET(request: NextRequest) {
         { success: false, error: "Missing client_id or redirect_uri" },
         { status: 400 }
       );
-      return addCorsHeaders(errorResponse, request);
+      return addWidgetCorsHeaders(errorResponse, request);
     }
 
     // ✅ Validate scope is present
@@ -59,7 +44,7 @@ export async function GET(request: NextRequest) {
         { success: false, error: "invalid_request", error_description: "scope parameter is required" },
         { status: 400 }
       );
-      return addCorsHeaders(errorResponse, request);
+      return addWidgetCorsHeaders(errorResponse, request);
     }
 
     // ============================================================================
@@ -72,7 +57,7 @@ export async function GET(request: NextRequest) {
         { success: false, error: "invalid_client", error_description: "Client not found" },
         { status: 400 }
       );
-      return addCorsHeaders(errorResponse, request);
+      return addWidgetCorsHeaders(errorResponse, request);
     }
 
     if (!oauthClient.is_active) {
@@ -80,7 +65,7 @@ export async function GET(request: NextRequest) {
         { success: false, error: "invalid_client", error_description: "Client is inactive" },
         { status: 400 }
       );
-      return addCorsHeaders(errorResponse, request);
+      return addWidgetCorsHeaders(errorResponse, request);
     }
 
     // Validate redirect_uri is in the allowed list
@@ -92,7 +77,7 @@ export async function GET(request: NextRequest) {
         { success: false, error: "invalid_redirect_uri", error_description: "Redirect URI not allowed" },
         { status: 400 }
       );
-      return addCorsHeaders(errorResponse, request);
+      return addWidgetCorsHeaders(errorResponse, request);
     }
 
     // ============================================================================
@@ -108,7 +93,7 @@ export async function GET(request: NextRequest) {
         { success: false, error: "invalid_scope", error_description: "The 'openid' scope is mandatory" },
         { status: 400 }
       );
-      return addCorsHeaders(errorResponse, request);
+      return addWidgetCorsHeaders(errorResponse, request);
     }
 
     // ✅ Validate requested scopes against client's allowed scopes
@@ -126,7 +111,7 @@ export async function GET(request: NextRequest) {
         },
         { status: 400 }
       );
-      return addCorsHeaders(errorResponse, request);
+      return addWidgetCorsHeaders(errorResponse, request);
     }
 
     // ✅ Validate code_challenge format (if provided) - PKCE security requirement
@@ -141,7 +126,7 @@ export async function GET(request: NextRequest) {
           },
           { status: 400 }
         );
-        return addCorsHeaders(errorResponse, request);
+        return addWidgetCorsHeaders(errorResponse, request);
       }
 
       // ✅ Validate code_challenge_method - RFC 7636 only supports S256
@@ -154,7 +139,7 @@ export async function GET(request: NextRequest) {
           },
           { status: 400 }
         );
-        return addCorsHeaders(errorResponse, request);
+        return addWidgetCorsHeaders(errorResponse, request);
       }
     }
 
@@ -170,7 +155,7 @@ export async function GET(request: NextRequest) {
         },
         { status: 400 }
       );
-      return addCorsHeaders(errorResponse, request);
+      return addWidgetCorsHeaders(errorResponse, request);
     }
 
     // Check for master cookie (existing session)
@@ -205,7 +190,7 @@ export async function GET(request: NextRequest) {
             { success: false, error: "No account found" },
             { status: 500 }
           );
-          return addCorsHeaders(errorResponse, request);
+          return addWidgetCorsHeaders(errorResponse, request);
         }
 
         // Get the user who owns this account
@@ -216,7 +201,7 @@ export async function GET(request: NextRequest) {
             { success: false, error: "User not found" },
             { status: 404 }
           );
-          return addCorsHeaders(errorResponse, request);
+          return addWidgetCorsHeaders(errorResponse, request);
         }
 
         // Stage 3: Generate authorization code instead of access token
@@ -236,7 +221,7 @@ export async function GET(request: NextRequest) {
             { success: false, error: "Failed to generate authorization code" },
             { status: 500 }
           );
-          return addCorsHeaders(errorResponse, request);
+          return addWidgetCorsHeaders(errorResponse, request);
         }
 
         // For prompt=none (silent auth), return JSON response
@@ -245,7 +230,7 @@ export async function GET(request: NextRequest) {
             { code: authCode, state },
             { status: 200 }
           );
-          return addCorsHeaders(response, request);
+          return addWidgetCorsHeaders(response, request);
         }
 
         // Redirect back to client with code + state (NO access_token in URL)
@@ -263,7 +248,7 @@ export async function GET(request: NextRequest) {
         { success: false, error: 'No valid session', error_description: 'prompt=none but no active session' },
         { status: 401 }
       );
-      return addCorsHeaders(errorResponse, request);
+      return addWidgetCorsHeaders(errorResponse, request);
     }
     
     // Redirect to login/signup with return params (including code_challenge for PKCE)
@@ -297,6 +282,6 @@ export async function GET(request: NextRequest) {
       { success: false, error: "Internal server error" },
       { status: 500 }
     );
-    return addCorsHeaders(errorResponse, request);
+    return addWidgetCorsHeaders(errorResponse, request);
   }
 }

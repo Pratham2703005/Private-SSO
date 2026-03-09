@@ -53,6 +53,7 @@ export async function GET() {
   // Cached account state from iframe (source of truth)
   let currentAccountState = {
     hasActiveSession: false,
+    hasRememberedAccounts: false,
     activeAccountPreview: null, // { name, email, avatarUrl }
     dataLoaded: false
   };
@@ -306,11 +307,13 @@ export async function GET() {
     if (event.data.type === 'accountStateChanged') {
       currentAccountState = {
         hasActiveSession: !!event.data.hasActiveSession,
+        hasRememberedAccounts: !!event.data.hasRememberedAccounts,
         activeAccountPreview: event.data.activeAccountPreview || null,
         dataLoaded: !!event.data.dataLoaded
       };
       console.log('[AccountSwitcher] Account state updated:', {
         hasActiveSession: currentAccountState.hasActiveSession,
+        hasRememberedAccounts: currentAccountState.hasRememberedAccounts,
         name: currentAccountState.activeAccountPreview?.name || null,
         dataLoaded: currentAccountState.dataLoaded
       });
@@ -337,7 +340,7 @@ export async function GET() {
 
   // Handle button click — split behavior based on session state
   function handleButtonClick() {
-    if (!currentAccountState.hasActiveSession) {
+    if (!currentAccountState.hasActiveSession && !currentAccountState.hasRememberedAccounts) {
       // No active session: directly initiate login (no modal)
       console.log('[AccountSwitcher] No active session — initiating sign-in flow');
       var isOnIdpDomain = window.location.origin === IDP_ORIGIN;
@@ -546,11 +549,13 @@ export async function GET() {
     // Re-enable button once data is loaded
     button.disabled = false;
 
-    if (state.hasActiveSession && state.activeAccountPreview) {
-      // === AVATAR MODE: show active user's avatar ===
+    if ((state.hasActiveSession || state.hasRememberedAccounts) && state.activeAccountPreview) {
+      // === AVATAR MODE: show the primary account preview when available ===
       const preview = state.activeAccountPreview;
-      button.setAttribute('aria-label', 'Account: ' + preview.name);
-      button.title = preview.name + ' (' + preview.email + ')';
+      const allSignedOut = state.hasRememberedAccounts && !state.hasActiveSession;
+      const titlePrefix = state.hasActiveSession ? 'Account: ' : 'Remembered account: ';
+      button.setAttribute('aria-label', allSignedOut ? 'Account selector' : titlePrefix + preview.name);
+      button.title = allSignedOut ? 'Choose an account' : preview.name + ' (' + preview.email + ')';
       button.innerHTML = '';
 
       // Full style reset (clears skeleton animation and sign-in styles)
@@ -570,7 +575,34 @@ export async function GET() {
         'background: transparent',
       ].join('; ') + ';';
 
-      if (preview.avatarUrl) {
+      if (allSignedOut) {
+        // Show generic user icon when all accounts are signed out
+        button.style.background = '#f0f0f0';
+        var userIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        userIcon.setAttribute('viewBox', '0 0 24 24');
+        userIcon.setAttribute('fill', 'none');
+        userIcon.setAttribute('stroke', '#5f6368');
+        userIcon.setAttribute('stroke-width', '2');
+        userIcon.setAttribute('stroke-linecap', 'round');
+        userIcon.setAttribute('stroke-linejoin', 'round');
+        userIcon.style.cssText = 'width: 18px; height: 18px; flex-shrink: 0; display: block; color: #5f6368;';
+        
+        // Create path element with proper SVG namespace
+        var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2');
+        path.setAttribute('stroke', '#5f6368');
+        userIcon.appendChild(path);
+        
+        var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', '12');
+        circle.setAttribute('cy', '7');
+        circle.setAttribute('r', '4');
+        circle.setAttribute('stroke', '#000');
+        userIcon.appendChild(circle);
+        
+        button.appendChild(userIcon);
+        console.log('[AccountSwitcher] Button updated to generic user icon (all accounts signed out)');
+      } else if (preview.avatarUrl) {
         // Image avatar
         var img = document.createElement('img');
         img.src = preview.avatarUrl;
@@ -582,11 +614,18 @@ export async function GET() {
           renderInitialAvatar(button, preview.name);
         };
         button.appendChild(img);
+        console.log('[AccountSwitcher] Button updated to avatar:', preview.name, {
+          hasActiveSession: state.hasActiveSession,
+          hasRememberedAccounts: state.hasRememberedAccounts,
+        });
       } else {
         // Gradient initial avatar
         renderInitialAvatar(button, preview.name);
+        console.log('[AccountSwitcher] Button updated to avatar:', preview.name, {
+          hasActiveSession: state.hasActiveSession,
+          hasRememberedAccounts: state.hasRememberedAccounts,
+        });
       }
-      console.log('[AccountSwitcher] Button updated to avatar:', preview.name);
     } else {
       // === SIGN-IN MODE: show sign-in button ===
       button.setAttribute('aria-label', signInConfig.text);
@@ -623,6 +662,41 @@ export async function GET() {
       }
       console.log('[AccountSwitcher] Button updated to sign-in');
     }
+  }
+
+  function resolveRememberedAccountsFallback() {
+    return fetch(IDP_ORIGIN + '/api/widget/accounts', {
+      credentials: 'include'
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (currentAccountState.dataLoaded) return;
+
+        if (data && Array.isArray(data.accounts) && data.accounts.length > 0) {
+          var remembered = data.accounts[0];
+          currentAccountState = {
+            hasActiveSession: false,
+            hasRememberedAccounts: true,
+            activeAccountPreview: {
+              name: remembered.name || '?',
+              email: remembered.email || '',
+              avatarUrl: remembered.avatar_url || null
+            },
+            dataLoaded: true
+          };
+          console.log('[AccountSwitcher] Fallback: remembered accounts found, showing avatar');
+        } else {
+          currentAccountState = {
+            hasActiveSession: false,
+            hasRememberedAccounts: false,
+            activeAccountPreview: null,
+            dataLoaded: true
+          };
+          console.log('[AccountSwitcher] Fallback: no remembered accounts');
+        }
+
+        updateButtonAppearance();
+      });
   }
 
   // Render a gradient circle with the user's initial inside the button
@@ -724,7 +798,7 @@ export async function GET() {
         // On IDP: iframe should have first-party cookies. If no state arrived,
         // user is signed out (SignInButton path doesn't send accountStateChanged).
         console.log('[AccountSwitcher] Iframe did not report state — defaulting to sign-in');
-        currentAccountState = { hasActiveSession: false, activeAccountPreview: null, dataLoaded: true };
+        currentAccountState = { hasActiveSession: false, hasRememberedAccounts: false, activeAccountPreview: null, dataLoaded: true };
         updateButtonAppearance();
         return;
       }
@@ -736,6 +810,7 @@ export async function GET() {
           if (data.authenticated && data.user) {
             currentAccountState = {
               hasActiveSession: true,
+              hasRememberedAccounts: true,
               activeAccountPreview: {
                 name: data.user.name || data.account?.name || '?',
                 email: data.user.email || data.account?.email || '',
@@ -744,18 +819,23 @@ export async function GET() {
               dataLoaded: true
             };
             console.log('[AccountSwitcher] Fallback: user is authenticated, showing avatar');
+            updateButtonAppearance();
           } else {
-            currentAccountState = { hasActiveSession: false, activeAccountPreview: null, dataLoaded: true };
-            console.log('[AccountSwitcher] Fallback: user not authenticated');
+            console.log('[AccountSwitcher] Fallback: user not authenticated, checking remembered accounts');
+            return resolveRememberedAccountsFallback();
           }
-          updateButtonAppearance();
         })
         .catch(function(err) {
           console.log('[AccountSwitcher] Fallback /api/me failed:', err);
-          // Still resolve skeleton on error — show sign-in
+          // Try remembered accounts before resolving to sign-in
           if (!currentAccountState.dataLoaded) {
-            currentAccountState = { hasActiveSession: false, activeAccountPreview: null, dataLoaded: true };
-            updateButtonAppearance();
+            resolveRememberedAccountsFallback().catch(function(accountsErr) {
+              console.log('[AccountSwitcher] Remembered accounts fallback failed:', accountsErr);
+              if (!currentAccountState.dataLoaded) {
+                currentAccountState = { hasActiveSession: false, hasRememberedAccounts: false, activeAccountPreview: null, dataLoaded: true };
+                updateButtonAppearance();
+              }
+            });
           }
         });
     }, fallbackDelay);

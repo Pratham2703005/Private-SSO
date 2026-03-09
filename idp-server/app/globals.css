@@ -6,23 +6,8 @@
    ============================================================================ */
 
 :root {
-  /* DARK THEME */
-  --dark-bg: #202124;
-  --dark-card: #2d2e30;
-  --dark-border: #3c4043;
-  --dark-text: #e8eaed;
-  --dark-text-secondary: #9aa0a6;
-  --dark-input-bg: transparent;
-  --dark-input-focus: #8ab4f8;
-  --dark-blue: #8ab4f8;
-  --dark-blue-btn: #1a73e8;
-  --dark-blue-btn-hover: #1765cc;
-  --dark-error: #f28b82;
-  --dark-divider: #3c4043;
-  --dark-chip-bg: #3c4043;
-  --dark-chip-hover: #4a4e51;
 
-  /* LIGHT THEME (BY DEFAULT)*/
+    /* LIGHT THEME (BY DEFAULT)*/
   --light-bg: #ffffff;
   --light-card: #f8f9fa;
   --light-border: #dadce0;
@@ -54,9 +39,43 @@
   --chip-bg: var(--light-chip-bg);
   --chip-hover: var(--light-chip-hover);
 
+  /* DARK THEME */
+  --dark-bg: #202124;
+  --dark-card: #2d2e30;
+  --dark-border: #3c4043;
+  --dark-text: #e8eaed;
+  --dark-text-secondary: #9aa0a6;
+  --dark-input-bg: transparent;
+  --dark-input-focus: #8ab4f8;
+  --dark-blue: #8ab4f8;
+  --dark-blue-btn: #1a73e8;
+  --dark-blue-btn-hover: #1765cc;
+  --dark-error: #f28b82;
+  --dark-divider: #3c4043;
+  --dark-chip-bg: #3c4043;
+  --dark-chip-hover: #4a4e51;
+
   /* Typography */
   --font-sans: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Force light theme */
+:root[data-theme='light'] {
+  --bg: var(--light-bg);
+  --card: var(--light-card);
+  --border: var(--light-border);
+  --text: var(--light-text);
+  --text-secondary: var(--light-text-secondary);
+  --input-bg: var(--light-input-bg);
+  --input-focus: var(--light-input-focus);
+  --blue: var(--light-blue);
+  --blue-btn: var(--light-blue-btn);
+  --blue-btn-hover: var(--light-blue-btn-hover);
+  --error: var(--light-error);
+  --divider: var(--light-divider);
+  --chip-bg: var(--light-chip-bg);
+  --chip-hover: var(--light-chip-hover);
 }
 
 /* Dark theme - respects system preference */
@@ -95,24 +114,6 @@
   --divider: var(--dark-divider);
   --chip-bg: var(--dark-chip-bg);
   --chip-hover: var(--dark-chip-hover);
-}
-
-/* Force light theme */
-:root[data-theme='light'] {
-  --bg: var(--light-bg);
-  --card: var(--light-card);
-  --border: var(--light-border);
-  --text: var(--light-text);
-  --text-secondary: var(--light-text-secondary);
-  --input-bg: var(--light-input-bg);
-  --input-focus: var(--light-input-focus);
-  --blue: var(--light-blue);
-  --blue-btn: var(--light-blue-btn);
-  --blue-btn-hover: var(--light-blue-btn-hover);
-  --error: var(--light-error);
-  --divider: var(--light-divider);
-  --chip-bg: var(--light-chip-bg);
-  --chip-hover: var(--light-chip-hover);
 }
 
 html {
