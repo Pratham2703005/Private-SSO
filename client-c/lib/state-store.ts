@@ -14,6 +14,7 @@
 
 import { createHmac } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { toast } from "robot-toast";
 
 const SECRET = process.env.NEXT_PUBLIC_OAUTH_STATE_SECRET!;
 const isProduction = process.env.NODE_ENV === "production";
@@ -29,7 +30,7 @@ function getOauthCookieOptions(expiresInSeconds: number) {
 }
 
 if (!process.env.NEXT_PUBLIC_OAUTH_STATE_SECRET && process.env.NODE_ENV === "production") {
-  console.warn(
+  toast.warning(
     "[StateStore] ⚠️  NEXT_PUBLIC_OAUTH_STATE_SECRET not set. Set NEXT_PUBLIC_OAUTH_STATE_SECRET in .env.production for proper security."
   );
 }
@@ -48,11 +49,6 @@ export function storeState(state: string, response: NextResponse, expiresInSecon
     value: signedValue,
     ...getOauthCookieOptions(expiresInSeconds),
   });
-
-  console.log(
-    `[StateStore] ✅ Stored state in signed cookie: ${state.substring(0, 8)}...`,
-    `(sameSite=${isProduction ? "none" : "lax"}, secure=${isProduction})`
-  );
 }
 
 /**
@@ -63,14 +59,12 @@ export function validateState(state: string, request: NextRequest, response?: Ne
   const signedValue = request.cookies.get("oauth_state")?.value;
 
   if (!signedValue) {
-    console.log(`[StateStore] ❌ State cookie not found`);
     return false;
   }
 
   const [storedState, signature] = signedValue.split(".");
 
   if (!storedState || !signature) {
-    console.log(`[StateStore] ❌ Invalid state cookie format`);
     return false;
   }
 
@@ -78,17 +72,13 @@ export function validateState(state: string, request: NextRequest, response?: Ne
   const expectedSignature = createHmac("sha256", SECRET).update(storedState).digest("hex");
 
   if (signature !== expectedSignature) {
-    console.log(`[StateStore] ❌ State cookie signature invalid (tampering detected?)`);
     return false;
   }
 
   // Verify state parameter matches
   if (storedState !== state) {
-    console.log(`[StateStore] ❌ State mismatch: ${storedState.substring(0, 8)}... !== ${state.substring(0, 8)}...`);
     return false;
   }
-
-  console.log(`[StateStore] ✅ State valid: ${state.substring(0, 8)}...`);
 
   // Consume cookie (one-time use) if response provided
   if (response) {
@@ -107,5 +97,4 @@ export function deleteState(response: NextResponse): void {
     value: "",
     ...getOauthCookieOptions(0),
   });
-  console.log(`[StateStore] 🗑️  Deleted state cookie`);
 }

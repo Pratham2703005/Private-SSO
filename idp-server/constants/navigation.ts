@@ -29,7 +29,7 @@ export const NAVIGATION_ITEMS: NavItem[] = [
   {
     icon: "link",
     label: "Connected apps",
-    href: `/${USER_INFO}/connections`,
+    href: `/${USER_INFO}/connected-apps`,
     color: "cyan",
   },
   {

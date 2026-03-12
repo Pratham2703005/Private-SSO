@@ -107,9 +107,16 @@ class WidgetManager {
    */
   private setupIframe() {
     // Create iframe pointing to IDP widget endpoint
+    // Pass client_id and parentOrigin parameters for:
+    // - client_id: per-domain preference saving
+    // - parentOrigin: so widget knows if it's on IDP or on client, and sends sessionUpdate appropriately
+    const widgetUrl = new URL(`${this.widgetOrigin}/widget/account-switcher`);
+    widgetUrl.searchParams.append('client_id', process.env.NEXT_PUBLIC_CLIENT_ID!);
+    widgetUrl.searchParams.append('parentOrigin', window.location.origin);
+
     const iframe = document.createElement("iframe");
     iframe.id = "account-switcher-widget";
-    iframe.src = `${this.widgetOrigin}/widget/account-switcher`;
+    iframe.src = widgetUrl.toString();
     iframe.style.border = "none";
     iframe.style.width = "100%";
     iframe.style.height = "auto";

@@ -72,8 +72,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const tokens = await tokenResponse.json();
-    
     // Use the redirectResponse we created earlier
     const response = redirectResponse;
 

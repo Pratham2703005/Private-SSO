@@ -1,0 +1,309 @@
+#infinite-grid-menu-canvas {
+  cursor: grab;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: absolute;
+  outline: none;
+  top: 0;
+  left: 0;
+  z-index: 0;
+}
+
+#infinite-grid-menu-canvas:active {
+  cursor: grabbing;
+}
+
+.infinite-menu-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.infinite-menu-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg);
+  z-index: -1;
+}
+
+/* Title */
+.face-title {
+  user-select: none;
+  position: absolute;
+  font-weight: 900;
+  font-size: 3rem;
+  left: 0;
+  bottom: 0;
+  transform: translateY(-50%);
+  color: var(--text);
+  transition: color 0.3s ease;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.face-title.inactive {
+  opacity: 0.5;
+}
+
+.face-title.active {
+  opacity: 1;
+}
+
+/* Description */
+.face-description {
+  user-select: none;
+  position: absolute;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+  opacity: 1;
+  left: 1.6em;
+  bottom: 2em;
+  max-width: 300px;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.face-description.inactive {
+  opacity: 0.5;
+}
+
+.face-description.active {
+  opacity: 1;
+}
+
+/* Action button */
+.action-button {
+  position: absolute;
+  right: 2em;
+  bottom: 2em;
+  z-index: 100;
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  background: var(--input-focus);
+  border: 3px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.action-button:hover {
+  background: var(--blue-btn-hover);
+  transform: scale(1.1);
+}
+
+.action-button.inactive {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.action-button.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.action-button-icon {
+  user-select: none;
+  color: #fff;
+  font-size: 26px;
+  font-weight: bold;
+}
+
+/* Top Right Panel */
+.info-panel-top-right {
+  position: absolute;
+  top: 1.5em;
+  right: 1.5em;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1em;
+  max-width: 280px;
+  z-index: 100;
+  transition: all 0.3s ease;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.info-panel-top-right.inactive {
+  opacity: 0.5;
+}
+
+.info-panel-top-right.active {
+  opacity: 1;
+}
+
+.info-panel-title {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.9rem;
+  margin: 0 0 0.5em 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.info-panel-value {
+  color: var(--text);
+  font-size: 0.95rem;
+  word-break: break-word;
+}
+
+/* Bottom Right Panel */
+.info-panel-bottom-right {
+  position: absolute;
+  bottom: 1.5em;
+  right: 1.5em;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1em;
+  max-width: 280px;
+  z-index: 100;
+  transition: all 0.3s ease;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.info-panel-bottom-right.inactive {
+  opacity: 0.5;
+}
+
+.info-panel-bottom-right.active {
+  opacity: 1;
+}
+
+/* Left Panel */
+.info-panel-left {
+  position: absolute;
+  left: 1.5em;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1em;
+  max-width: 200px;
+  z-index: 100;
+  transition: all 0.3s ease;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.info-panel-left.inactive {
+  opacity: 0.3;
+}
+
+.info-panel-left.active {
+  opacity: 1;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  margin-bottom: 1em;
+}
+
+.info-item:last-child {
+  margin-bottom: 0;
+}
+
+.connect-button {
+  width: 100%;
+  padding: 0.6em 1em;
+  background: var(--input-focus);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  margin-top: 0.5em;
+}
+
+.connect-button:hover {
+  background: var(--blue-btn-hover);
+  transform: translateY(-2px);
+}
+
+.connect-button.inactive {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.face-title.active {
+  opacity: 1;
+  transform: translate(20%, -50%);
+  pointer-events: auto;
+  transition: 0.5s ease;
+}
+
+.face-title.inactive {
+  pointer-events: none;
+  opacity: 0;
+  transition: 0.1s ease;
+}
+
+.face-description {
+  user-select: none;
+  position: absolute;
+  max-width: 10ch;
+  top: 50%;
+  font-size: 1.2rem;
+  right: 1%;
+  transform: translate(0, -50%);
+}
+
+.face-description.active {
+  opacity: 1;
+  transform: translate(-90%, -50%);
+  pointer-events: auto;
+  transition: 0.5s ease;
+}
+
+.face-description.inactive {
+  pointer-events: none;
+  transform: translate(-60%, -50%);
+  opacity: 0;
+  transition: 0.1s ease;
+}
+
+.action-button {
+  position: absolute;
+  left: 50%;
+}
+
+.action-button.active {
+  bottom: 3.8em;
+  transform: translateX(-50%) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+  transition: 0.5s ease;
+}
+
+.action-button.inactive {
+  bottom: -80px;
+  transform: translateX(-50%) scale(0);
+  opacity: 0;
+  pointer-events: none;
+  transition: 0.1s ease;
+}
+
+@media (max-width: 1500px) {
+  .face-title,
+  .face-description {
+    display: none;
+  }
+}

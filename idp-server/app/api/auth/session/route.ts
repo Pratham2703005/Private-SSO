@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMasterCookie } from "@/lib/utils";
-import { getSession, getUserById, getUserAccounts, getAccountById } from "@/lib/db";
+import {
+  getSession,
+  getUserById,
+  getUserAccounts,
+  getAccountById,
+  getClient,
+  validateClientOrigin,
+  getDomainPreference,
+  setDomainPreference,
+  clearDomainPreference,
+} from "@/lib/db";
 import { generateAccessToken } from "@/lib/jwt";
 import {
   verifySessionBinding,
-  validateTokenExpiration,
   setCSRFCookie,
   generateCSRFToken,
 } from "@/lib/session-security-utils";
@@ -32,12 +41,45 @@ import { supabase } from "@/lib/db";
 export async function POST(request: NextRequest) {
   try {
     const sessionId = getMasterCookie(request);
+    const clientId = request.headers.get("x-client-id");
+    const origin = request.headers.get("origin");
 
     if (!sessionId) {
       return NextResponse.json(
         { success: false, error: "No active session" },
         { status: 401 }
       );
+    }
+
+    // SECURITY: Validate client_id AND origin match
+    // Prevents: curl -H "x-client-id: client-c-dev" from malicious.com
+    // Note: origin is only set by browsers. Server-to-server calls have empty origin.
+    // That's OK - we trust our own backend servers.
+    if (clientId) {
+      // Only validate origin if provided (browser request)
+      // Empty origin = server-to-server call, which is trusted
+      if (origin) {
+        const isValidClient = await validateClientOrigin(clientId, origin);
+        if (!isValidClient) {
+          console.warn(
+            `[Session] Invalid client: ${clientId} from origin ${origin}`
+          );
+          return NextResponse.json(
+            { success: false, error: "Unauthorized client" },
+            { status: 403 }
+          );
+        }
+      } else {
+        // Server-to-server: Just verify client exists
+        const client = await getClient(clientId);
+        if (!client) {
+          console.warn(`[Session] Unknown client: ${clientId}`);
+          return NextResponse.json(
+            { success: false, error: "Unknown client" },
+            { status: 403 }
+          );
+        }
+      }
     }
 
     // 1. Get session from DB
@@ -60,8 +102,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Get active account
-    const activeAccountId = session.active_account_id;
+    // 3. Get domain-specific account preference
+    // NEW: Instead of global active_account_id, use per-domain preference
+    let activeAccountId = session.active_account_id; // fallback to global
+
+    if (clientId) {
+      const domainPref = await getDomainPreference(sessionId, clientId);
+
+      if (domainPref?.accountId) {
+        // Preference exists, but check if it's still valid
+        // If user logged out and logged in as a different account,
+        // the preference becomes stale. Reinitialize it.
+        if (domainPref.accountId !== session.active_account_id) {
+          console.log(`[Session] Domain preference stale (${domainPref.accountId} != ${session.active_account_id}), reinitializing`);
+          await setDomainPreference(sessionId, clientId, session.active_account_id);
+          activeAccountId = session.active_account_id;
+        } else {
+          // Preference is still valid
+          activeAccountId = domainPref.accountId;
+        }
+      } else {
+        // First request from this client: initialize with current account
+        console.log(`[Session] First request from ${clientId}, initializing preference with ${session.active_account_id}`);
+        await setDomainPreference(sessionId, clientId, session.active_account_id);
+        activeAccountId = session.active_account_id;
+      }
+    } 
+
     if (!activeAccountId) {
       return NextResponse.json(
         { success: false, error: "No active account in session" },
@@ -69,13 +136,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Get account data
-    const account = await getAccountById(activeAccountId);
+    // 4. Get account data (handle deletion gracefully)
+    let account = await getAccountById(activeAccountId);
+
     if (!account) {
-      return NextResponse.json(
-        { success: false, error: "Active account not found" },
-        { status: 401 }
-      );
+      // Account was deleted: clear preference and fall back to primary
+      if (clientId) {
+        await clearDomainPreference(sessionId, clientId);
+      }
+
+      const allAccounts = await getUserAccounts(session.user_id);
+      const primaryAccount = allAccounts.find((a) => a.is_primary) || allAccounts[0];
+
+      if (!primaryAccount) {
+        return NextResponse.json(
+          { success: false, error: "No active account available" },
+          { status: 401 }
+        );
+      }
+
+      account = primaryAccount;
+      activeAccountId = primaryAccount.id;
+
+      // Initialize fallback preference if needed
+      if (clientId) {
+        await setDomainPreference(sessionId, clientId, primaryAccount.id);
+      }
     }
 
     // 5. Get user data

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMasterCookie, clearMasterCookie } from "@/lib/utils";
-import { getSession, revokeAllUserTokens, revokeSession } from "@/lib/db";
+import { getSession, revokeAllUserTokens, revokeSession, clearDomainPreference } from "@/lib/db";
 import { validateCSRFToken, setCSRFCookie, generateCSRFToken } from "@/lib/session-security-utils";
 import { supabase } from "@/lib/db";
 
@@ -112,6 +112,9 @@ export async function POST(request: NextRequest) {
         throw error;
       }
 
+      // Clear domain preference for this client
+      await clearDomainPreference(sessionId, clientId);
+
       const response = NextResponse.json(
         {
           success: true,
@@ -131,6 +134,13 @@ export async function POST(request: NextRequest) {
       // GLOBAL LOGOUT: Revoke everything and clear IDP session
       // Revokes ALL tokens for this user (affects all clients)
       await revokeAllUserTokens(session.user_id);
+
+      // Clear all domain preferences for this session
+      const { supabase: supabaseClient } = await import("@/lib/db");
+      await supabaseClient
+        .from("session_domain_preferences")
+        .delete()
+        .eq("session_id", sessionId);
 
       // Revoke the session itself (__sso_session becomes invalid)
       await revokeSession(sessionId);

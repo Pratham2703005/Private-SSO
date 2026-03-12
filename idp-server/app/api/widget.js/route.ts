@@ -434,7 +434,17 @@ export async function GET() {
 
     // Build iframe URL with parentOrigin
     const parentOriginParam = encodeURIComponent(getParentOrigin() || 'http://localhost:3003');
-    iframe.src = WIDGET_URL + '?parentOrigin=' + parentOriginParam;
+    let iframeUrl = WIDGET_URL + '?parentOrigin=' + parentOriginParam;
+
+    // NEW: Add client_id if available (from window object)
+    // Allows per-domain active account isolation
+    const clientId = window.__CLIENT_ID || window.CLIENT_ID;
+    if (clientId) {
+      iframeUrl += '&client_id=' + encodeURIComponent(clientId);
+      console.log('[AccountSwitcher] Adding client_id to iframe URL:', clientId);
+    }
+
+    iframe.src = iframeUrl;
 
     iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-top-navigation');
     iframe.setAttribute('allow', 'cross-origin-isolated');
@@ -446,12 +456,12 @@ export async function GET() {
     });
 
     iframe.addEventListener('error', function() {
-      console.error('[AccountSwitcher] Failed to load iframe from:', WIDGET_URL);
+      console.error('[AccountSwitcher] Failed to load iframe from:', iframeUrl);
       popover.innerHTML = '<div style="padding: 20px; text-align: center; color: #666; font-size: 14px;">Failed to load account switcher. Please refresh.</div>';
     });
 
     popover.appendChild(iframe);
-    console.log('[AccountSwitcher] Iframe pre-created with src:', WIDGET_URL);
+    console.log('[AccountSwitcher] Iframe pre-created with src:', iframeUrl);
   }
 
   // Set up close handlers (click outside, Escape key)

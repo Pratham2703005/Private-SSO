@@ -20,6 +20,7 @@ interface WidgetClientProps {
 export default function WidgetClient({ initialAccounts, initialError }: WidgetClientProps) {
   const theme = getThemeClasses();
   const parentOriginRef = useRef<string | null>(null);
+  const clientIdRef = useRef<string | null>(null);
   
   const [state, setState] = useState<WidgetClientState>({
     accounts: initialAccounts,
@@ -27,11 +28,15 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
     switching: false,
   });
   
-  // Get parentOrigin from URL params on mount
+  // Get parentOrigin and clientId from URL params on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const origin = new URLSearchParams(window.location.search).get('parentOrigin');
+      const params = new URLSearchParams(window.location.search);
+      const origin = params.get('parentOrigin');
+      const clientId = params.get('client_id') || params.get('clientId');
+      
       parentOriginRef.current = origin;
+      clientIdRef.current = clientId;
       
       // Notify parent that widget is ready
       if (origin && window.parent && window.parent !== window) {
@@ -181,15 +186,22 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
   // Handle account switch (can_switch → active)
   const handleAccountSwitch = async (account: IndexedAccount): Promise<void> => {
     try {
-      console.log('[WidgetClient] Switching to account:', account.email);
-      
       // Show loading state in widget + notify parent
       setState(prev => ({ ...prev, switching: true }));
       notifyParent('ACCOUNT_SWITCHING');
       
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      
+      // Send x-client-id if available (for per-domain preference saving)
+      // The widget runs on IDP domain, so origin=IDP. But clientId is for a client domain.
+      // That's OK - the switch-account endpoint trusts the widget since it's served from IDP.
+      if (clientIdRef.current) {
+        headers['x-client-id'] = clientIdRef.current;
+      }
+      
       const response = await fetch('/api/widget/switch-account', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ index: account.index }),
         credentials: 'include',
       });

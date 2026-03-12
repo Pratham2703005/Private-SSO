@@ -113,6 +113,9 @@ export interface Database {
           client_secret_hash: string;
           client_name: string | null;
           allowed_redirect_uris: unknown;
+          allowed_scopes: string | null;
+          image: string | null;
+          domain: string | null;
           is_active: boolean | null;
           created_at: string | null;
           updated_at: string | null;

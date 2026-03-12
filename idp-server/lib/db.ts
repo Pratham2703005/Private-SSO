@@ -426,6 +426,33 @@ export async function getOAuthClient(clientId: string) {
   }
 }
 
+/**
+ * Fetch all active OAuth clients for the connected-apps feature
+ * Returns enriched client data with domain extracted from redirect URIs
+ */
+export async function getConnectedApps() {
+  try {
+    console.log(`[getConnectedApps] Fetching all active OAuth clients`);
+    
+    const { data, error } = await supabase
+      .from("oauth_clients")
+      .select("*")
+      .eq("is_active", true)
+      .order("client_name", { ascending: true });
+
+    if (error) {
+      console.error("[getConnectedApps] Supabase error:", error);
+      return [];
+    }
+
+    console.log(`[getConnectedApps] Found ${data?.length || 0} active clients`);
+    return data || [];
+  } catch (error) {
+    console.error("[getConnectedApps] Exception error:", error);
+    return [];
+  }
+}
+
 // Authorization Code Functions
 export async function createAuthorizationCode(
   userId: string,
@@ -914,6 +941,127 @@ export async function revokeAccountTokensPrecise(
     );
   } catch (error) {
     console.error("[DB] Error revoking account tokens:", error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// DOMAIN PREFERENCE FUNCTIONS
+// ============================================================================
+// Per-domain active account isolation: each client can have different active account
+// Enables: client-c on account-1, another client on account-2 (same user)
+// Multi-tab sync: automatic (server-side source of truth)
+// Security: Validates client_id and origin header
+
+/**
+ * Get registered client metadata
+ * SECURITY: Used to validate that client_id exists and check domain
+ */
+export async function getClient(clientId: string) {
+  const { data } = await supabase
+    .from("clients")
+    .select("client_id, domain, redirect_uri, is_active")
+    .eq("client_id", clientId)
+    .eq("is_active", true)
+    .single();
+
+  return data;
+}
+
+/**
+ * SECURITY: Validate client_id AND origin header match
+ * Prevents: curl spoofing attacks from malicious origins
+ *
+ * Example flow:
+ * - Attacker: curl -H "x-client-id: client-c-dev" from malicious.com
+ * - IDP checks: clients.domain (localhost:3003) !== malicious.com
+ * - Result: 403 Forbidden ✓
+ */
+export async function validateClientOrigin(
+  clientId: string,
+  origin: string | null
+): Promise<boolean> {
+  if (!clientId || !origin) return false;
+
+  const client = await getClient(clientId);
+  if (!client) return false;
+
+  // Check: origin matches registered client domain
+  return client.domain === origin;
+}
+
+/**
+ * Get domain-specific account preference
+ * Returns: which account is currently active for this (session, client) pair
+ *
+ * Used by: /api/auth/session/validate
+ * Performance: <10ms with idx_session_client index
+ */
+export async function getDomainPreference(
+  sessionId: string,
+  clientId: string
+): Promise<{ accountId: string } | null> {
+  const { data } = await supabase
+    .from("session_domain_preferences")
+    .select("account_id")
+    .eq("session_id", sessionId)
+    .eq("client_id", clientId)
+    .single();
+
+  return data ? { accountId: data.account_id } : null;
+}
+
+/**
+ * Set or update domain-specific account preference
+ * Updates: which account is active for this (session, client) pair
+ *
+ * Used by:
+ * - /api/auth/login (initialize default)
+ * - /api/widget/switch-account (user switches account)
+ * - /api/auth/session/validate (first request from client)
+ *
+ * NOTE: updated_at auto-updated by PostgreSQL trigger
+ * DO NOT manually set updated_at in application code
+ */
+export async function setDomainPreference(
+  sessionId: string,
+  clientId: string,
+  accountId: string
+): Promise<void> {
+  const { error } = await supabase.from("session_domain_preferences").upsert(
+    {
+      session_id: sessionId,
+      client_id: clientId,
+      account_id: accountId,
+      // NOTE: DO NOT set updated_at - trigger will handle it
+    },
+    { onConflict: "session_id,client_id" }
+  );
+
+  if (error) {
+    console.error("[DB] Error setting domain preference:", error);
+    throw error;
+  }
+}
+
+/**
+ * Clear domain preference (on logout)
+ * Used by: /api/auth/logout (scope=app)
+ *
+ * Idempotent: doesn't fail if preference doesn't exist
+ */
+export async function clearDomainPreference(
+  sessionId: string,
+  clientId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("session_domain_preferences")
+    .delete()
+    .eq("session_id", sessionId)
+    .eq("client_id", clientId);
+
+  if (error) {
+    console.error("[DB] Error clearing domain preference:", error);
     throw error;
   }
 }

@@ -22,7 +22,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getMasterCookie } from '@/lib/utils';
-import { getSession, switchActiveAccount } from '@/lib/db';
+import { getSession, switchActiveAccount, getClient, setDomainPreference } from '@/lib/db';
 import { getAccountByIndex, getActiveAccountCount } from '@/lib/account-indexing';
 
 interface SwitchAccountRequest {
@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
   try {
     // Get IDP session from cookie
     const sessionId = getMasterCookie(request);
+    const clientId = request.headers.get("x-client-id");
 
     if (!sessionId) {
       console.log('[Widget] /switch-account: No IDP session found');
@@ -48,6 +49,21 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'Not logged in' },
         { status: 401 }
       );
+    }
+
+    // SECURITY: Validate clientId exists and is active
+    // NOTE: Do NOT validate origin here. The widget runs on IDP domain (localhost:3000),
+    // so origin will always be IDP domain. But clientId refers to a client domain (localhost:3003).
+    // They won't match. That's OK - the widget is trusted because it's served from IDP.
+    // Origin validation happens on client-c's side when it calls /api/me.
+    if (clientId) {
+      const client = await getClient(clientId);
+      if (!client) {
+        return NextResponse.json(
+          { success: false, error: "Unknown client" },
+          { status: 400 }
+        );
+      }
     }
 
     // Validate session exists
@@ -108,8 +124,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Switch active account in session
+    // Switch active account in session (global for all clients)
     await switchActiveAccount(sessionId, account.id);
+
+    // NEW: Also save domain-specific preference if client provided
+    if (clientId) {
+      await setDomainPreference(sessionId, clientId, account.id);
+    }
 
     const response: SwitchAccountResponse = {
       success: true,
@@ -120,15 +141,12 @@ export async function POST(request: NextRequest) {
 
     // After successful switch:
     // - IDP session (__sso_session) now has new active_account_id
+    // - Domain preference saved for this client (if provided)
     // - Client will receive ACCOUNT_SWITCHED message via postMessage
     // - Client's widget-manager will detect this and trigger OAuth re-auth
     // - Client constructs authorize URL from its own config (clientId, redirectUri)
     // - This ensures tight coupling is avoided (IDP doesn't hardcode client URLs)
     // - Enables multi-client support (client-a, client-b, client-c all use same IDP)
-
-    console.log(
-      `[Widget] /switch-account: Switched to index ${index} (${account.email})`
-    );
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {

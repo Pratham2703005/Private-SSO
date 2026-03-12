@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
 
 export function setMasterCookie(response: NextResponse, sessionId: string) {
   const maxAge = parseInt(process.env.MASTER_COOKIE_MAX_AGE || "604800");

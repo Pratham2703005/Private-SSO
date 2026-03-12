@@ -41,6 +41,9 @@ export async function GET(request: NextRequest) {
     // Browser does not auto-send cookies on fetch() - we must do it manually
     const cookieHeader = request.headers.get("cookie") || "";
 
+    // Get client's origin for origin validation
+    const origin = request.headers.get("origin") || "";
+
     // Call IDP session validate endpoint
     const validateResponse = await fetch(`${IDP_SERVER}/api/auth/session`, {
       method: "POST",
@@ -49,6 +52,10 @@ export async function GET(request: NextRequest) {
         // Forward cookies from this request to IDP
         // This includes __sso_session, __csrf, and any other IDP cookies
         "Cookie": cookieHeader,
+        // NEW: Send client ID for per-domain active account isolation
+        "x-client-id": process.env.NEXT_PUBLIC_CLIENT_ID!,
+        // Forward origin for origin validation (prevents spoofing)
+        "origin": origin,
         // Forward User-Agent for session binding validation
         "User-Agent": request.headers.get("user-agent") || "",
       },
@@ -58,6 +65,12 @@ export async function GET(request: NextRequest) {
     });
 
     if (!validateResponse.ok) {
+      if (validateResponse.status === 403) {
+        return NextResponse.json(
+          { authenticated: false, error: "Client validation failed" },
+          { status: 403 }
+        );
+      }
       if (validateResponse.status === 401) {
         return NextResponse.json(
           { authenticated: false, error: "Session invalid or expired" },
