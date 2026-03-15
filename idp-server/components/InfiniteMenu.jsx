@@ -1180,16 +1180,6 @@ export default function InfiniteMenu({
         </h2>
       )}
 
-      {/* Description - Bottom Left */}
-      {/* {activeItem && (
-        <p className={`face-description ${isMoving ? 'inactive' : 'active'}`}>{activeItem.description}</p>
-      )} */}
-
-      {/* Connect Action - Bottom Right */}
-      {/* <div onClick={handleButtonClick} className={`action-button ${isMoving || !activeItem ? 'inactive' : 'active'}`}>
-        <p className="action-button-icon">↗</p>
-      </div> */}
-
       {/* Top Right Panel - Domain/Provider Info or Add Domain Button */}
       {activeItem && activeItem.isAddButton ? (
         <div className={`info-panel ${isMoving ? "opacity-50" : "opacity-100"}`}>
