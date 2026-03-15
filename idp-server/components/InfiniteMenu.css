@@ -312,8 +312,7 @@
   position: absolute;
   right: 24px;
   bottom: 24px;
-
-  backdrop-filter: blur(10px);
+  background: var(--card);
   border-radius: 12px;
   padding: 16px 18px;
 

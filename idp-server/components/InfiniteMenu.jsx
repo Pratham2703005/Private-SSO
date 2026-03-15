@@ -1192,7 +1192,7 @@ export default function InfiniteMenu({
 
       {/* Top Right Panel - Domain/Provider Info or Add Domain Button */}
       {activeItem && activeItem.isAddButton ? (
-        <div className={`info-panel ${isMoving ? "opacity-0" : "opacity-100"}`}>
+        <div className={`info-panel ${isMoving ? "opacity-50" : "opacity-100"}`}>
           <button
             onClick={handleAddDomainClick}
             className="add-domain-button"
@@ -1214,7 +1214,7 @@ export default function InfiniteMenu({
           </button>
         </div>
       ) : activeItem ? (
-        <div className={`info-panel ${isMoving ? "opacity-0" : "opacity-100"}`}>
+        <div className={`info-panel ${isMoving ? "opacity-50" : "opacity-100"}`}>
           <button
             onClick={handleEditDomainClick}
             className="edit-domain-button"
