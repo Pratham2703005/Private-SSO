@@ -40,7 +40,7 @@ import { supabase } from "@/lib/db";
  */
 export async function POST(request: NextRequest) {
   try {
-    const sessionId = getMasterCookie(request);
+    const sessionId = getMasterCookie(request) || request.headers.get("x-session-id");
     const clientId = request.headers.get("x-client-id");
     const origin = request.headers.get("origin");
 

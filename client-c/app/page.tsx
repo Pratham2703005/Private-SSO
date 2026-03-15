@@ -29,7 +29,9 @@ export default function Home() {
 
   // Single source of truth for session fetch logic
   const performSessionFetch = async () => {
-    const response = await fetch('/api/me');
+    const response = await fetch('/api/me', {
+      credentials: 'include',
+    });
     if (!response.ok) {
       throw new Error('Not authenticated');
     }

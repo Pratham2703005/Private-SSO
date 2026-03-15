@@ -72,11 +72,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const tokenData = await tokenResponse.json();
+
     // Use the redirectResponse we created earlier
     const response = redirectResponse;
 
-    // Generate opaque session ID (NOT tied to tokens, just a reference)
-    const sessionId = randomBytes(32).toString("hex");
+    // Use session ID from IDP token response if available (for multi-domain coordination)
+    // Otherwise generate a new one
+    const sessionId = tokenData.session_id || randomBytes(32).toString("hex");
 
     // NO TOKEN STORAGE - client doesn't store access_token or refresh_token
     // IDP manages all tokens, client only stores session reference

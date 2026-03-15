@@ -437,7 +437,6 @@ export async function getConnectedApps() {
     const { data, error } = await supabase
       .from("oauth_clients")
       .select("*")
-      .eq("is_active", true)
       .order("client_name", { ascending: true });
 
     if (error) {
@@ -450,6 +449,68 @@ export async function getConnectedApps() {
   } catch (error) {
     console.error("[getConnectedApps] Exception error:", error);
     return [];
+  }
+}
+
+/**
+ * Create a new OAuth client
+ */
+export async function createOAuthClient(params: {
+  client_name: string;
+  domain: string;
+  image?: string | null;
+  allowed_scopes?: string;
+  allowed_redirect_uris: string[];
+  is_active?: boolean;
+}) {
+  try {
+    const clientId = uuidv4();
+    // Generate a secure client secret
+    const clientSecret = crypto.randomBytes(32).toString("hex");
+    // Hash the client secret before storing
+    const clientSecretHash = await bcrypt.hash(clientSecret, 10);
+
+    console.log("[createOAuthClient] Creating new OAuth client:", {
+      clientId,
+      clientName: params.client_name,
+      domain: params.domain,
+    });
+
+    const { data, error } = await supabase
+      .from("oauth_clients")
+      .insert([
+        {
+          id: clientId,
+          client_id: clientId,
+          client_name: params.client_name,
+          domain: params.domain,
+          image: params.image ?? null,
+          allowed_scopes: params.allowed_scopes || "openid profile email",
+          allowed_redirect_uris: params.allowed_redirect_uris,
+          client_secret_hash: clientSecretHash,
+          is_active: params.is_active !== false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("[createOAuthClient] Supabase error:", error);
+      throw error;
+    }
+
+    console.log("[createOAuthClient] Successfully created OAuth client");
+    
+    // Return client data with the unhashed secret (only shown once)
+    return {
+      ...data,
+      client_secret: clientSecret,
+    };
+  } catch (error) {
+    console.error("[createOAuthClient] Exception error:", error);
+    throw error;
   }
 }
 

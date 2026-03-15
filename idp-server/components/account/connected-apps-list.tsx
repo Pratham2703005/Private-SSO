@@ -25,6 +25,8 @@ interface InfiniteMenuItem {
   userId?: string;
   connected?: boolean;
   createdAt?: string | null;
+  isAddButton?: boolean;
+  id?: string;
 }
 
 // Generate SVG placeholder with app initial
@@ -72,8 +74,6 @@ const InfiniteMenu = dynamic(
   scale: number;
   onItemChange: (index: number) => void;
   onMovementChange: (isMoving: boolean) => void;
-  onItemClick: (item: InfiniteMenuItem) => void;
-  onConnectClick: (item: InfiniteMenuItem) => void;
 }>;
 
 export function ConnectedAppsList() {
@@ -111,8 +111,8 @@ export function ConnectedAppsList() {
   // Transform apps into InfiniteMenu format with actual images
   // Only include non-confidential data (exclude client_secret, etc.)
   const menuItems: InfiniteMenuItem[] = useMemo(
-    () =>
-      apps.map((app) => ({
+    () => {
+      const items: InfiniteMenuItem[] = apps.map((app) => ({
         image: app.image || generateSvgPlaceholder(app.client_name),
         title: app.client_name,
         description: app.domain || "OAuth Application",
@@ -121,7 +121,24 @@ export function ConnectedAppsList() {
         connected: app.is_active,
         createdAt: app.created_at,
         link: app.domain ? `https://${app.domain}` : undefined,
-      })),
+        id: app.id,
+      }));
+
+      // Add permanent "Add Domain" item
+      const plusSvg = `data:image/svg+xml;base64,${btoa(
+        '<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="200" fill="#6366f1"/><text x="100" y="100" font-size="120" font-weight="bold" fill="white" text-anchor="middle" dy="0.3em">+</text></svg>'
+      )}`;
+      
+      items.push({
+        image: plusSvg,
+        title: "Add Domain",
+        description: "Connect a new domain",
+        provider: "Add Domain",
+        isAddButton: true,
+      });
+
+      return items;
+    },
     [apps]
   );
   const handleItemChange = useCallback((index: number) => {
@@ -151,6 +168,11 @@ export function ConnectedAppsList() {
       // Add your connect logic here (redirect to OAuth flow, etc.)
     }
   }, [apps]);
+
+  const handleAddDomainClick = useCallback(() => {
+    console.log("Add Domain clicked");
+    // Add your domain creation logic here
+  }, []);
 
   if (isLoading) {
     return (
@@ -198,8 +220,6 @@ export function ConnectedAppsList() {
           scale={1.0}
           onItemChange={handleItemChange}
           onMovementChange={handleMovementChange}
-          onItemClick={handleItemClick}
-          onConnectClick={handleConnectClick}
         />
       </div>
     </div>

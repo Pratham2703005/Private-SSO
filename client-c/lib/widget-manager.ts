@@ -378,7 +378,9 @@ class WidgetManager {
    */
   private async fetchAndUpdateUser() {
     try {
-      const response = await fetch("/api/me");
+      const response = await fetch("/api/me", {
+        credentials: 'include',
+      });
 
       if (!response.ok) {
         if (response.status === 401) {

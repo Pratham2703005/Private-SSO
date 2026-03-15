@@ -52,6 +52,8 @@ export async function GET(request: NextRequest) {
         // Forward cookies from this request to IDP
         // This includes __sso_session, __csrf, and any other IDP cookies
         "Cookie": cookieHeader,
+        // NEW: Send session ID via header for multi-domain coordination (client-c specific)
+        "x-session-id": appSessionCookie,
         // NEW: Send client ID for per-domain active account isolation
         "x-client-id": process.env.NEXT_PUBLIC_CLIENT_ID!,
         // Forward origin for origin validation (prevents spoofing)
