@@ -34,7 +34,7 @@ export default function AccountsList({ accounts, activeIndex }: AccountsListProp
       // Notify parent (caller iframe) about account switch
       if (window.parent) {
         window.parent.postMessage(
-          { type: 'accountSwitched', accountIndex: account.index, accountId: account.id },
+          { type: 'accountSwitched', accountIndex: account.index, accountId: account.id, email: account.email, name: account.name },
           '*'
         );
       }

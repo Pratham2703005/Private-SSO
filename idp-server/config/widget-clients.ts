@@ -35,6 +35,11 @@ export const WIDGET_ALLOWED_CLIENTS: WidgetClient[] = [
     clientId: 'client-c-dev',
     name: 'Client C Development',
   },
+  {
+    origin: 'http://localhost:3004',
+    clientId: 'bff3de58-091e-41d2-b299-e78243250d2b',
+    name: 'Client D Development',
+  },
 ];
 
 export function isAllowedWidgetClient(origin: string): boolean {

@@ -277,7 +277,12 @@ export async function GET() {
         // can race on CSRF token rotation, causing one to fail.
         // Let page.tsx's call complete first, then refresh the button.
         setTimeout(function() {
-          fetch('/api/me', { credentials: 'include' })
+          fetch('/api/me', { 
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+          })
             .then(function(r) { return r.json(); })
             .then(function(data) {
               if (data.authenticated && data.user) {
@@ -813,7 +818,12 @@ export async function GET() {
         return;
       }
       console.log('[AccountSwitcher] Iframe did not report state — checking client /api/me fallback');
-      fetch('/api/me', { credentials: 'include' })
+      fetch('/api/me', { 
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      })
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (currentAccountState.dataLoaded) return; // arrived in the meantime

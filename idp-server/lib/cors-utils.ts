@@ -33,6 +33,7 @@ function getAllowedWidgetOrigins(): string[] {
       'http://localhost:3001',  // Client app (alt)
       'http://localhost:3002',  // Client app (alt)
       'http://localhost:3003',  // Client app (default)
+      'http://localhost:3004',  // Client app (client-d)
     ];
   }
 
