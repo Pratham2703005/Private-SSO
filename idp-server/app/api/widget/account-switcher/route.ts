@@ -75,15 +75,19 @@ export async function GET(request: NextRequest) {
             // Only mark can_switch if account has valid logon in CURRENT sessionId
             if (sessionId) {
               try {
+                // Use .limit(1) to safely handle 0, 1, or 2+ duplicate rows
                 const logonCheck = await supabase
                   .from('session_logons')
                   .select('id')
                   .eq('session_id', sessionId)
                   .eq('account_id', account.id)
                   .not('revoked', 'is', true)
-                  .single();
+                  .limit(1);
 
-                if (logonCheck.data) {
+                // Check: Array.isArray + length check instead of relying on .single()
+                const hasActiveLogon = Array.isArray(logonCheck.data) && logonCheck.data.length > 0;
+
+                if (hasActiveLogon) {
                   const sessionCheck = await supabase
                     .from('sessions')
                     .select('expires_at')

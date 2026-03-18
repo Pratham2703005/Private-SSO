@@ -69,6 +69,7 @@ export interface AuthStartResponse {
 
 export interface TokenResponse {
   session_id: string;
+  session_state?: "active" | "inactive";
   access_token?: string;
   refresh_token?: string;
   token_type?: string;

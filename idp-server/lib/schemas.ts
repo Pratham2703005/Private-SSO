@@ -77,6 +77,8 @@ export interface TokenResponse {
   access_token: string;
   id_token: string;
   refresh_token: string;
+  session_id: string;
+  session_state: "active" | "inactive";
   token_type: "Bearer";
   expires_in: number; // seconds (3600 = 1 hour, 86400 = 1 day)
 }

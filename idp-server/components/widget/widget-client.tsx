@@ -235,10 +235,9 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
         jarIndex,
       });
 
-      // Only send sessionUpdate on client apps — IDP page navigation already handles full refresh
-      if (!isOnIdp) {
-        notifyParent('sessionUpdate');
-      }
+      // Do not emit sessionUpdate after ACCOUNT_SWITCHED on client apps.
+      // Parent SDK already refreshes on ACCOUNT_SWITCHED; emitting both can race
+      // and briefly downgrade button state to sign-in.
     } catch (error) {
       console.error('[WidgetClient] Error switching account:', error);
       setState(prev => ({ ...prev, switching: false }));

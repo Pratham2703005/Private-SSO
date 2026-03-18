@@ -288,6 +288,7 @@ export async function GET() {
               if (data.authenticated && data.user) {
                 currentAccountState = {
                   hasActiveSession: true,
+                  hasRememberedAccounts: true,
                   activeAccountPreview: {
                     name: data.user.name || '?',
                     email: data.user.email || '',
@@ -296,7 +297,14 @@ export async function GET() {
                   dataLoaded: true
                 };
               } else {
-                currentAccountState = { hasActiveSession: false, activeAccountPreview: null, dataLoaded: true };
+                // Preserve remembered-account state on transient /api/me misses.
+                // This prevents false sign-in redirects right after a successful switch.
+                currentAccountState = {
+                  hasActiveSession: false,
+                  hasRememberedAccounts: currentAccountState.hasRememberedAccounts !== false,
+                  activeAccountPreview: currentAccountState.activeAccountPreview || null,
+                  dataLoaded: true
+                };
               }
               updateButtonAppearance();
             })

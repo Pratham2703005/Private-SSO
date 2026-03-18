@@ -41,6 +41,7 @@ export interface Database {
           code_challenge_method: string | null;
           state: string | null;
           scopes: unknown;
+          session_id: string; // ⭐ CRITICAL: Bind auth_code to session
           expires_at: string;
           is_redeemed: boolean | null;
           created_at: string | null;

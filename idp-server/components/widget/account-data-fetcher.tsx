@@ -95,7 +95,7 @@ export async function AccountDataFetcher({
                       .eq('session_id', sessionId)
                       .eq('account_id', account.id)
                       .not('revoked', 'is', true)
-                      .maybeSingle(),
+                      .limit(1),
                     supabase
                       .from('sessions')
                       .select('expires_at')
@@ -103,11 +103,12 @@ export async function AccountDataFetcher({
                       .maybeSingle(),
                   ]);
 
-                  const logonCheck = logonRes.data ?? null;
+                  // Use array-based existence check instead of relying on .maybeSingle()
+                  const hasActiveLogon = Array.isArray(logonRes.data) && logonRes.data.length > 0;
                   const sessionCheck = sessionRes.data ?? null;
 
 
-                  if (logonCheck && sessionCheck?.expires_at && new Date(sessionCheck.expires_at) > new Date()) {
+                  if (hasActiveLogon && sessionCheck?.expires_at && new Date(sessionCheck.expires_at) > new Date()) {
                     console.log(`[AccountDataFetcher] Account ${account.id}: can_switch`);
                     state = 'can_switch';
                   }

@@ -26,7 +26,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
-import { verifyState, extractState, DEFAULT_CONFIG, API_PATHS } from '../shared';
+import { DEFAULT_CONFIG, API_PATHS } from '../shared';
 import type { HandleCallbackConfig, TokenResponse } from '../shared';
 
 export function handleCallback(config: HandleCallbackConfig) {
@@ -143,21 +143,30 @@ export function handleCallback(config: HandleCallbackConfig) {
 
       const tokenData: TokenResponse = await tokenResponse.json();
 
+      // ⭐ CRITICAL: Validate session_id exists (security check)
+      if (!tokenData.session_id) {
+        console.error('[handleCallback] Missing session_id in token response');
+        return NextResponse.redirect(
+          new URL('/auth/error?error=invalid_response&description=Missing session_id in token response', origin),
+          { status: 302 }
+        );
+      }
+
       // Create response - redirect to home (use absolute URL)
       const response = NextResponse.redirect(new URL('/', origin), { status: 302 });
 
-      // Set session cookie
+      // ⭐ CRITICAL: Set session cookie with proper SSO configuration
       const sessionExpiry = new Date(
         Date.now() + (DEFAULT_CONFIG.timeouts.session * 1000)
       );
       response.cookies.set({
         name: DEFAULT_CONFIG.cookies.ssoSession,
-        value: tokenData.session_id,
+        value: tokenData.session_id, // ✅ Validated above
         httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // SSO-ready: 'none' for widget cross-site
         secure: getSecureFlag(),
-        expires: sessionExpiry,
+        path: '/',
+        maxAge: DEFAULT_CONFIG.timeouts.session, // seconds
       });
 
       // Clear PKCE verifier cookie

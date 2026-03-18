@@ -295,13 +295,17 @@ async function handleAuthorizationCodeGrant(body: {
     console.log('[Token] Code marked as redeemed');
 
     console.log('[Token] Exchange successful - returning tokens');
+    // ⭐ CRITICAL: Return session_id from auth_code (bound at authorize time)
     const tokenResponse: TokenResponse = {
       access_token: accessToken,
       id_token: idToken,
       refresh_token: refreshTokenValue,
+      session_id: authCode.session_id, // ⭐ Return the bound session_id
+      session_state: "active", // Multi-account/silent login support
       token_type: "Bearer",
       expires_in: 86400, // 1 day in seconds
     };
+    console.log('[Token] SessionId from authCode:', authCode.session_id);
     return NextResponse.json(tokenResponse, { status: 200 });
   } catch (error) {
     console.error("[Token] Authorization Code Grant Error:", error);
@@ -357,6 +361,17 @@ async function handleRefreshTokenGrant(body: {
     }
 
     const storedToken = validation.token;
+
+    // Enforce session binding for refresh-token flow.
+    // Legacy tokens without session_id are rejected to avoid issuing unbound sessions.
+    if (!storedToken.session_id) {
+      console.log('[Token] ❌ Refresh token missing session binding');
+      const errorResponse: TokenErrorResponse = {
+        error: "invalid_grant",
+        error_description: "Refresh token is missing session binding",
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
+    }
 
     // Validate client_id matches
     if (storedToken.client_id !== client_id) {
@@ -462,6 +477,8 @@ async function handleRefreshTokenGrant(body: {
       access_token: newAccessToken,
       id_token: newIdToken,
       refresh_token: newRefreshTokenValue,
+      session_id: storedToken.session_id,
+      session_state: "active",
       token_type: "Bearer",
       expires_in: 86400, // 1 day in seconds
     };

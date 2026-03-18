@@ -201,73 +201,19 @@ export function SSOProvider({
       }
 
       // Handle ACCOUNT_SWITCHED or accountSwitched - iframe notifies that account switched on IDP
-      // Must trigger OAuth re-auth to sync client session with IDP session
+      // ⭐ No OAuth re-auth needed - IDP session is global and already updated
+      // Just refresh client session by calling /api/me
       if (event.data?.type === 'ACCOUNT_SWITCHED' || event.data?.type === 'accountSwitched') {
-        console.log('[SSOProvider] Account switched:', { 
+        console.log('[SSOProvider] Account switched on IDP:', { 
           accountId: event.data?.accountId,
-          accountIndex: event.data?.accountIndex,
-          data: event.data 
+          accountIndex: event.data?.accountIndex
         });
-        try {
-          if (!clientId || !redirectUri) {
-            throw new Error('clientId and redirectUri are required for account switching');
-          }
-          
-          // Get accountId and accountIndex from iframe message
-          const accountId = event.data?.accountId;
-          const accountIndex = event.data?.accountIndex;
-          console.log('[SSOProvider] Building authorize URL for account:', { accountId, accountIndex, eventData: event.data });
-          
-          // Find the account email from session data using index first, then fallback to ID
-          let accountEmail: string | undefined;
-          
-          // First check if email is directly in the message
-          if (event.data?.email) {
-            accountEmail = event.data.email;
-            console.log('[SSOProvider] Found email directly in message:', accountEmail);
-          }
-          
-          // Try using accountIndex first (direct array access)
-          if (!accountEmail && session?.accounts) {
-            if (accountIndex !== undefined && accountIndex >= 0 && accountIndex < session.accounts.length) {
-              accountEmail = session.accounts[accountIndex]?.email;
-              console.log('[SSOProvider] Found account by index:', { index: accountIndex, email: accountEmail });
-            }
-          }
-          
-          // Fallback to searching by accountId
-          if (!accountEmail && session?.accounts && accountId) {
-            const account = session.accounts.find(acc => acc.id === accountId);
-            accountEmail = account?.email;
-            console.log('[SSOProvider] Found account by ID:', { accountId, email: accountEmail });
-          }
-          
-          // For reauth on account switch, call /api/auth/start with the email
-          // This ensures login_hint gets passed through correctly
-          console.log('[SSOProvider] Calling /api/auth/start for account reauth with email:', accountEmail);
-          try {
-            const params = new URLSearchParams();
-            if (accountEmail) {
-              params.append('email', accountEmail);
-            }
-            params.append('prompt', 'login'); // Force login, not signup
-            
-            const response = await fetch(
-              `/api/auth/start?${params.toString()}`,
-              { credentials: 'include' }
-            );
-
-            if (!response.ok) {
-              throw new Error('Failed to start authentication');
-            }
-
-            const data = await response.json();
-            window.location.href = data.url;
-          } catch (err) {
-            console.error('[SSOProvider] Account reauth failed:', err);
-          }
-        } catch (err) {
-          console.error('[SSOProvider] Failed to trigger account switch re-auth:', err);
+        
+        // Refresh session immediately - IDP session is global, already switched
+        const newSession = await fetchSessionWithDedup();
+        if (newSession) {
+          setSession(newSession);
+          emitterRef.current.emit('sessionRefresh', newSession);
         }
         return;
       }

@@ -206,6 +206,7 @@ export async function GET(request: NextRequest) {
 
         // Stage 3: Generate authorization code instead of access token
         // Use the already-validated requestedScopes from STAGE 2B
+        // ⭐ CRITICAL: Pass sessionId to bind auth_code ↔ session_id
         const authCode = await createAuthorizationCode(
           user.id,  // Use the user who owns the active account
           clientId,
@@ -213,6 +214,7 @@ export async function GET(request: NextRequest) {
           codeChallenge,
           state,
           requestedScopes,
+          sessionId,  // ⭐ BIND auth_code to session
           ttlSeconds
         );
 
