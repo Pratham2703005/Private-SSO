@@ -64,8 +64,10 @@ function signState(state: string, secret: string): string {
   return `${state}.${signature}`;
 }
 
-function generatePKCE(verifierLength: number = 128): { verifier: string; challenge: string } {
-  const bytes = randomBytes(verifierLength);
+function generatePKCE(byteLength: number = 96): { verifier: string; challenge: string } {
+  // RFC 7636: code_verifier must be 43-128 chars from [A-Za-z0-9-._~].
+  // 96 random bytes -> base64url length 128 chars (no padding), valid max length.
+  const bytes = randomBytes(byteLength);
   const verifier = base64UrlEncode(bytes);
   const hash = createHash('sha256').update(verifier).digest();
   const challenge = base64UrlEncode(hash);
