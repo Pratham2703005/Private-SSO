@@ -15,28 +15,10 @@ export const NAVIGATION_ITEMS: NavItem[] = [
     color: "green",
   },
   {
-    icon: "lock",
-    label: "Security & sign-in",
-    href: `/${USER_INFO}/security`,
-    color: "cyan",
-  },
-  {
-    icon: "key",
-    label: "Password",
-    href: `/${USER_INFO}/security/password`,
-    color: "blue",
-  },
-  {
     icon: "link",
     label: "Connected apps",
     href: `/${USER_INFO}/connected-apps`,
     color: "cyan",
-  },
-  {
-    icon: "shield",
-    label: "Data & privacy",
-    href: `/${USER_INFO}/data-and-privacy`,
-    color: "purple",
   },
 ];
 

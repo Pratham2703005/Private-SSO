@@ -112,34 +112,12 @@ export async function GET() {
     // Generate CSS based on mode (integrated vs floating)
     const buttonSize = isIntegratedMode ? '40px' : '44px';
     const buttonContainerCSS = isIntegratedMode
-      ? \`
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        z-index: auto;
-      \`
-      : \`
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 10001;
-      \`;
+      ? "position: relative; display: inline-flex; align-items: center; justify-content: center; z-index: auto;"
+      : "position: fixed; top: 20px; right: 20px; z-index: 10001;";
     
     const popoverCSS = isIntegratedMode
-      ? \`
-        position: fixed;
-        width: 420px;
-        max-width: 95vw;
-        z-index: 50000;
-      \`
-      : \`
-        position: fixed;
-        top: 78px;
-        right: 20px;
-        width: 420px;
-        z-index: 10000;
-      \`;
+      ? "position: fixed; width: 420px; max-width: 95vw; z-index: 50000;"
+      : "position: fixed; top: 78px; right: 20px; width: 420px; z-index: 10000;";
     
     style.textContent = \`
       #__account_switcher_button_container,
@@ -224,12 +202,31 @@ export async function GET() {
       const isOnIdpDomain = window.location.origin === IDP_ORIGIN;
       
       if (isOnIdpDomain && event.data.jarIndex !== undefined) {
-        // On IDP page: redirect to the account's jar index page
-        console.log('[AccountSwitcher] On IDP domain, navigating to account page:', IDP_ORIGIN + '/u/' + event.data.jarIndex);
-        setTimeout(() => {
-          window.location.href = IDP_ORIGIN + '/u/' + event.data.jarIndex;
+        // On IDP page: redirect to the account's jar index page, preserving current path
+        // Example: /u/0/personal-info → /u/1/personal-info when switching from index 0 to 1
+        var currentPath = window.location.pathname;
+        var pathMatch = currentPath.match(/^\\/u\\/(\\d+)(\\/.*)?$/);
+        
+        var newPath;
+        if (pathMatch) {
+          // User is on /u/{oldIndex}/... or /u/{oldIndex}
+          // Replace the index with the new one, keep remaining path
+          var oldIndex = pathMatch[1];
+          var remainingPath = pathMatch[2] || '';
+          newPath = '/u/' + event.data.jarIndex + remainingPath;
+        } else {
+          // Not on a /u/{index} path, redirect to new account's dashboard
+          newPath = '/u/' + event.data.jarIndex;
+        }
+        
+        // Preserve query string and hash
+        var fullUrl = IDP_ORIGIN + newPath + window.location.search + window.location.hash;
+        
+        console.log('[AccountSwitcher] On IDP domain, navigating to account page:', fullUrl);
+        setTimeout(function() {
+          window.location.href = fullUrl;
         }, 100);
-      } else if (isOnIdpDomain && !event.data.jarIndex) {
+      } else if (isOnIdpDomain && event.data.jarIndex === undefined) {
         // On IDP page but no jar index: trigger silent login
         triggerSilentLogin();
       } else {
@@ -243,13 +240,13 @@ export async function GET() {
 
     // Handle: logoutApp (client-only logout)
     if (event.data.type === 'logoutApp') {
-      const logoutUrl = event.data.logoutUrl;
+      var logoutUrl = event.data.logoutUrl;
       console.log('[AccountSwitcher] Logging out of app, redirecting to:', logoutUrl);
       // Reset button to sign-in immediately
       currentAccountState = { hasActiveSession: false, activeAccountPreview: null, dataLoaded: true };
       updateButtonAppearance();
       closeAccountSwitcher();
-      setTimeout(() => {
+      setTimeout(function() {
         window.location.href = logoutUrl;
       }, 100);
       return;
@@ -262,7 +259,7 @@ export async function GET() {
       currentAccountState = { hasActiveSession: false, activeAccountPreview: null, dataLoaded: true };
       updateButtonAppearance();
       closeAccountSwitcher();
-      setTimeout(() => {
+      setTimeout(function() {
         window.location.href = IDP_ORIGIN + '/login';
       }, 100);
       return;
@@ -520,18 +517,18 @@ export async function GET() {
       credentials: 'include',
       redirect: 'follow',
     })
-      .then((res) => {
+      .then(function(res) {
         if (res.ok) {
           console.log('[AccountSwitcher] Silent login successful');
           // Reload page to reflect new session
-          setTimeout(() => {
+          setTimeout(function() {
             window.location.reload();
           }, 100);
         } else {
           console.log('[AccountSwitcher] Silent login response status:', res.status);
         }
       })
-      .catch((err) => {
+      .catch(function(err) {
         console.error('[AccountSwitcher] Silent login failed:', err);
       });
   }

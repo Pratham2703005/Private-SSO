@@ -24,7 +24,7 @@ export function ReauthWall({ name, maskedEmail, email, initial, returnTo }: Reau
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div className="h-full flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
         {/* Header */}
         <div className="px-8 pt-10 pb-6 text-center">

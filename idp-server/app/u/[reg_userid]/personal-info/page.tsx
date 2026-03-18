@@ -3,7 +3,7 @@ import { getSession, getUserById, getAccountById } from "@/lib/db";
 import { getAllAccountsWithIndices } from "@/lib/account-indexing";
 import { PersonalInfo } from "@/components/account/personal-info";
 import type { User, UserAccount } from "@/types/database";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ReauthWall } from "@/components/account/reauth-wall";
 
 export const metadata = {
@@ -31,10 +31,13 @@ export default async function PersonalInfoPage({ params }: PageProps) {
 
   // Get session data + session account IDs for reauth detection
   let sessionAccountIds: Set<string> = new Set();
+  let activeAccountId: string | null = null;
+  let jarAccountIds: string[] = [];
 
   if (sessionId) {
     const session = await getSession(sessionId);
     if (session) {
+      activeAccountId = session.active_account_id;
       const sessionAccounts = await getAllAccountsWithIndices(sessionId);
       sessionAccountIds = new Set(sessionAccounts.map(a => a.id));
     }
@@ -44,7 +47,7 @@ export default async function PersonalInfoPage({ params }: PageProps) {
     const indexNum = parseInt(reg_userid, 10);
 
     // Build stable combined account list: jar order first, then session-only accounts appended
-    const jarAccountIds = jarCookie ? jarCookie.split(',').filter(Boolean) : [];
+    jarAccountIds = jarCookie ? jarCookie.split(',').filter(Boolean) : [];
     const combinedIds = [...jarAccountIds];
 
     // Append session accounts not already in jar
@@ -84,6 +87,17 @@ export default async function PersonalInfoPage({ params }: PageProps) {
 
   if (!user || !account) {
     notFound();
+  }
+
+  // If current account needs reauth but there's an active account available
+  // and it's different from the current one, redirect to the active account's page
+  // This handles the case where the widget switched to a different account
+  // so we should show that account's page instead of a reauth wall for the old account
+  if (isNeedsReauth && activeAccountId && accountId !== activeAccountId && sessionAccountIds.has(activeAccountId)) {
+    // Find the index of the active account to build the redirect path
+    const activeAccountIndex = jarAccountIds.indexOf(activeAccountId);
+    const redirectIndex = activeAccountIndex !== -1 ? activeAccountIndex : reg_userid;
+    redirect(`/u/${redirectIndex}/personal-info`);
   }
 
   // Account exists in jar but session expired — show reauth wall
