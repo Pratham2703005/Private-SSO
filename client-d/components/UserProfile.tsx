@@ -11,6 +11,7 @@ export function UserProfile() {
   if (!session) {
     return <div className="text-gray-500">Not signed in</div>;
   }
+  console.log("User session:", session);
 
   return (
     <div className="p-4 bg-gray-100 rounded">
