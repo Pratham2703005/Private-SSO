@@ -12,6 +12,13 @@ interface AccountSidebarProps {
 
 export function AccountSidebar({ items, regUserId = "0" }: AccountSidebarProps) {
   const pathname = usePathname();
+  
+  // Split pathname by '/' and filter out empty segments
+  const pathSegments = pathname.split('/').filter(Boolean);
+  
+  // Get the main section from the current path (typically index 2 after /u/regUserId/)
+  // e.g., /u/0/personal-info/name -> personal-info
+  const currentSection = pathSegments[2];
 
   return (
     <aside className="w-64 flex-shrink-0">
@@ -19,12 +26,16 @@ export function AccountSidebar({ items, regUserId = "0" }: AccountSidebarProps) 
         {items.map((item) => {
           // Replace /u/ with /u/[regUserId]/ in navigation links
           const href = item.href.replace(/^\/u\//, `/u/${regUserId}/`);
-          // Normalize href by removing trailing slash for comparison
-          const normalizedHref = href.replace(/\/$/, '');
-          // Normalize current pathname
-          const normalizedPathname = pathname.replace(/\/$/, '');
-          // Check if current pathname matches the href
-          const isActive = normalizedPathname === normalizedHref;
+          // Get segments from the href
+          const hrefSegments = href.split('/').filter(Boolean);
+          
+          // Get the main section from href (typically index 2)
+          // e.g., /u/0/personal-info -> personal-info
+          const hrefSection = hrefSegments[2];
+          
+          // Compare main sections
+          const isActive = currentSection === hrefSection;
+          
           return (
             <Link
               key={item.href}

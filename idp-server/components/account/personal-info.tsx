@@ -1,7 +1,7 @@
 "use client";
 
 import { UserAccount } from "@/types/database";
-import { ProfileAvatar } from "@/components/ui";
+import { AvatarImage } from "@/components/ui";
 import Link from "next/link";
 import { buildPersonalInfoDisplayItems } from "@/lib/personal-info";
 import { PROFILE_SECTION_CONFIG } from "@/constants/personal-info";
@@ -42,21 +42,13 @@ export function PersonalInfo({ account, regUserId }: PersonalInfoProps) {
                     ))}
                   </div>
                   {item.slug === "profile-picture" && (
-                    account.profile_image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={account.profile_image_url}
-                        alt={account.name}
-                        className="size-20 rounded-full object-cover border-2 border-gray-300"
-                      />
-                    ) : (
-                      <ProfileAvatar
+                      <AvatarImage
                         name={account.name}
-                        email={account.email}
-                        size="lg"
-                        showBorder={true}
+                        size={80}
+                        redirectUrl={`/u/${regUserId}/personal-info/profile-picture`}
+                        imageUrl={account.profile_image_url}
                       />
-                    )
+                    
                   )}
                 </div>
               </div>
@@ -75,6 +67,7 @@ export function PersonalInfo({ account, regUserId }: PersonalInfoProps) {
                 href={`/u/${regUserId}/personal-info/${item.slug}`}
                 key={item.slug}
                 className={className}
+                target="_blank"
               >
                 {content}
               </Link>

@@ -2,7 +2,10 @@ import { notFound, redirect } from "next/navigation";
 import { ReauthWall } from "@/components/account/reauth-wall";
 import { ProfileFieldEditor } from "@/components/account/profile-field-editor";
 import { isPersonalInfoFieldSlug } from "@/lib/personal-info";
-import { getMaskedEmailForReauth, resolvePersonalInfoAccess } from "../access-resolver";
+import {
+  getMaskedEmailForReauth,
+  resolvePersonalInfoAccess,
+} from "../access-resolver";
 
 interface PageProps {
   params: Promise<{ reg_userid: string; field: string }>;
@@ -39,12 +42,10 @@ export default async function PersonalInfoDetailPage({ params }: PageProps) {
   }
 
   return (
-    <div>
-      <ProfileFieldEditor
-        field={field}
-        account={resolution.account}
-        regUserId={reg_userid}
-      />
-    </div>
+    <ProfileFieldEditor
+      field={field}
+      account={resolution.account}
+      regUserId={reg_userid}
+    />
   );
 }

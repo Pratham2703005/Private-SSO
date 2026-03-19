@@ -1,28 +1,26 @@
 import React, { useState } from "react";
+import { AvatarImage } from "@/components/ui";
 
 interface ImageUploadFieldProps {
   field: string;
   label: string;
   onChange: (value: string | null) => void;
-  disabled?: boolean;
   helpText?: string;
   previewUrl?: string;
+  name?: string;
 }
 
 export function ImageUploadField({
   field,
   label,
   onChange,
-  disabled = false,
   helpText,
   previewUrl,
+  name = "User",
 }: ImageUploadFieldProps) {
   const [preview, setPreview] = useState<string | null>(previewUrl || null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const handleFileChange = (file: File) => {
     // Validate file type
     if (!file.type.startsWith("image/")) {
       alert("Please select an image file");
@@ -51,28 +49,17 @@ export function ImageUploadField({
         {label}
       </label>
 
-      {preview && (
-        <div className="relative inline-block">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={preview}
-            alt="Preview"
-            className="h-24 w-24 rounded-full object-cover border-2 border-gray-300"
-          />
-        </div>
-      )}
-
-      <div className="space-y-2">
-        <input
-          id={field}
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          disabled={disabled}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100 disabled:file:bg-gray-100 disabled:file:text-gray-500"
+      {/* Avatar Preview with Camera Icon */}
+      <div className="flex justify-center mb-4">
+        <AvatarImage
+          imageUrl={preview || previewUrl}
+          name={name}
+          size={96}
+          onImageChange={handleFileChange}
         />
-        {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
       </div>
+
+      {helpText && <p className="text-xs text-center text-gray-500">{helpText}</p>}
     </div>
   );
 }

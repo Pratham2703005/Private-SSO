@@ -9,8 +9,6 @@ export const PERSONAL_INFO_FIELD_SLUGS = [
   "birthday",
   "language",
   "home-address",
-  "work-address",
-  "other-addresses",
   "google-password",
 ] as const;
 
@@ -25,8 +23,6 @@ export const PERSONAL_INFO_FIELD_LABELS: Record<PersonalInfoFieldSlug, string> =
   birthday: "Birthday",
   language: "Language",
   "home-address": "Home address",
-  "work-address": "Work address",
-  "other-addresses": "Other addresses",
   "google-password": "Google Password",
 };
 
@@ -39,8 +35,6 @@ export const PERSONAL_INFO_ACTION_LABELS: Record<PersonalInfoFieldSlug, string> 
   birthday: "Edit",
   language: "Edit",
   "home-address": "Edit",
-  "work-address": "Edit",
-  "other-addresses": "Manage",
   "google-password": "Change",
 };
 
@@ -122,23 +116,6 @@ export const PROFILE_SECTION_CONFIG: Record<PersonalInfoFieldSlug, ProfileSectio
     actionLabel: "Edit",
     componentType: "text-input",
     updateField: "home_address",
-  },
-  "work-address": {
-    slug: "work-address",
-    redirectLink: "/personal-info/work-address",
-    label: "Work address",
-    actionLabel: "Edit",
-    componentType: "text-input",
-    updateField: "work_address",
-  },
-  "other-addresses": {
-    slug: "other-addresses",
-    redirectLink: "/personal-info/other-addresses",
-    label: "Other addresses",
-    actionLabel: "Manage",
-    componentType: "custom",
-    updateField: "home_address", // Placeholder, custom handling required
-    customComponentPath: "@/components/account/addresses-manager",
   },
   "google-password": {
     slug: "google-password",

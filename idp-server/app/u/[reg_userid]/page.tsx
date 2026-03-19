@@ -10,7 +10,7 @@ import {
   SearchBar,
   LandingHeader,
   LandingHero,
-  ProfileAvatar,
+  AvatarImage,
 } from "@/components/ui";
 import { QUICK_ACTIONS } from "@/constants/navigation";
 import type { User, UserAccount } from "@/types/database";
@@ -141,11 +141,11 @@ export default async function HomePage({ params }: PageProps) {
       {/* Profile Section - Centered like Google */}
       <div className="mb-12 text-center">
         <div className="flex justify-center mb-6">
-          <ProfileAvatar
+          <AvatarImage
             name={account.name}
-            email={account.email}
-            size="2xl"
-            showBorder={true}
+            imageUrl={account.profile_image_url}
+            redirectUrl={`/u/${reg_userid}/personal-info/profile-picture`}
+            size={190}
           />
         </div>
         <h2 className="text-3xl font-bold text-gray-900 mb-2">

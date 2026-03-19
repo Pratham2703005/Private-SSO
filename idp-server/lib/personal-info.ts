@@ -4,6 +4,7 @@ import {
   PERSONAL_INFO_FIELD_SLUGS,
   type PersonalInfoFieldSlug,
 } from "@/constants/personal-info";
+import { formatBirthdateWithAge } from "@/lib/age-utils";
 import type { UserAccount } from "@/types/database";
 
 export interface PersonalInfoDisplayItem {
@@ -18,20 +19,7 @@ export function isPersonalInfoFieldSlug(value: string): value is PersonalInfoFie
 }
 
 function formatBirthday(rawBirthday: string | null): string {
-  if (!rawBirthday) {
-    return "Not set";
-  }
-
-  const parsedDate = new Date(rawBirthday);
-  if (Number.isNaN(parsedDate.getTime())) {
-    return rawBirthday;
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).format(parsedDate);
+  return formatBirthdateWithAge(rawBirthday, true);
 }
 
 export function getPersonalInfoValuesBySlug(
@@ -55,10 +43,6 @@ export function getPersonalInfoValuesBySlug(
       return [account.language || "English (United States)"];
     case "home-address":
       return [account.home_address || "Not set"];
-    case "work-address":
-      return [account.work_address || "Not set"];
-    case "other-addresses":
-      return ["Not set"];
     case "google-password":
       return ["Last changed Nov 7, 2025"];
     default:

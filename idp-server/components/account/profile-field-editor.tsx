@@ -57,8 +57,6 @@ export function ProfileFieldEditor({
         return account.language || "English (United States)";
       case "home-address":
         return account.home_address || "";
-      case "work-address":
-        return account.work_address || "";
       default:
         return "";
     }
@@ -162,7 +160,7 @@ export function ProfileFieldEditor({
   };
 
   const handleCancel = () => {
-    router.back();
+    router.push(`/u/${regUserId}/personal-info`);
   };
 
   // Render field based on component type
@@ -226,7 +224,6 @@ export function ProfileFieldEditor({
             onChange={setValue}
             disabled={isSaving}
             maxDate={new Date().toISOString().split("T")[0]}
-            helpText="You must be at least 13 years old"
           />
         );
 
@@ -236,8 +233,8 @@ export function ProfileFieldEditor({
             field={field}
             label={label}
             onChange={(val) => setValue(val || "")}
-            disabled={isSaving}
             previewUrl={value || account.profile_image_url || undefined}
+            name={account.name}
             helpText="Upload a JPG, PNG or GIF image. Max size 2MB."
           />
         );

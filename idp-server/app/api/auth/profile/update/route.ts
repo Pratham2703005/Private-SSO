@@ -86,12 +86,6 @@ const fieldValidationSchemas: Record<PersonalInfoFieldSlug, z.ZodSchema> = {
   "home-address": z.object({
     value: z.string().max(500).optional(),
   }),
-  "work-address": z.object({
-    value: z.string().max(500).optional(),
-  }),
-  "other-addresses": z.object({
-    value: z.array(z.string()).optional(),
-  }),
   "google-password": z.object({
     value: z.never(), // This field requires custom component handling
   }),
@@ -248,9 +242,6 @@ export async function POST(request: NextRequest) {
         break;
       case "home-address":
         updateData = { home_address: (value as string) || null };
-        break;
-      case "work-address":
-        updateData = { work_address: (value as string) || null };
         break;
       default:
         return NextResponse.json(
