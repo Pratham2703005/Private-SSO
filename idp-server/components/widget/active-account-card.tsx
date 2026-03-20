@@ -1,8 +1,8 @@
 'use client';
 
-import Image from 'next/image';
 import { IndexedAccount } from '@/lib/account-indexing';
 import { getThemeClasses } from '@/lib/theme-config';
+import { AvatarImage } from '@/components/ui';
 
 interface ActiveAccountCardProps {
   account: IndexedAccount;
@@ -19,27 +19,18 @@ export default function ActiveAccountCard({ account }: ActiveAccountCardProps) {
     }
   };
 
-  const getAvatarInitial = (): string => {
-    return account.name.charAt(0).toUpperCase();
-  };
+  const stableIndex = account.jarIndex ?? account.index;
 
   return (
     <div className={`flex flex-col items-center justify-center py-8 px-6 border-b ${theme.colors.dividerBorder}`}>
       {/* Avatar */}
-      <div className={`mb-4 relative w-20 h-20 ${theme.styles.avatarShadow}`}>
-        {account.avatar_url ? (
-          <Image
-            src={account.avatar_url}
-            alt={account.name}
-            fill
-            className={`${theme.styles.avatarBorderRadius} object-cover`}
-            priority
-          />
-        ) : (
-          <div className={`w-20 h-20 ${theme.styles.avatarBorderRadius} bg-gradient-to-br ${theme.colors.avatarGradientFrom} ${theme.colors.avatarGradientTo} flex items-center justify-center text-white text-3xl font-semibold`}>
-            {getAvatarInitial()}
-          </div>
-        )}
+      <div className="mb-4">
+        <AvatarImage
+          name={account.name}
+          imageUrl={account.profile_image_url}
+          redirectUrl={`/u/${stableIndex}/personal-info/profile-picture`}
+          size={80}
+        />
       </div>
 
       {/* Greeting */}

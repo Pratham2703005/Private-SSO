@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { getSession, getUserById, getAccountById, switchActiveAccount } from "@/lib/db";
-import { getAllAccountsWithIndices } from "@/lib/account-indexing";
-import { notFound } from "next/navigation";
+import { getAllAccountsWithIndices, getTopRememberedAccountId } from "@/lib/account-indexing";
+import { notFound, redirect } from "next/navigation";
 import { ReauthWall } from "@/components/account/reauth-wall";
 import { LandingHeader, LandingHero } from "@/components/ui";
 import { ConnectedAppsList } from "@/components/account/connected-apps-list";
@@ -26,6 +26,8 @@ export default async function ConnectedAppsPage({ params }: PageProps) {
   let account: UserAccount | null = null;
   let accountId: string | null = null;
   let isNeedsReauth = false;
+  let jarAccountIds: string[] = [];
+  let combinedIds: string[] = [];
 
   // Resolve account from reg_userid (index or account ID)
   const isIndex = /^\d+$/.test(reg_userid);
@@ -42,20 +44,18 @@ export default async function ConnectedAppsPage({ params }: PageProps) {
     }
   }
 
+  jarAccountIds = jarCookie ? jarCookie.split(',').filter(Boolean) : [];
+  combinedIds = [...jarAccountIds];
+  for (const id of sessionAccountIds) {
+    if (!combinedIds.includes(id)) {
+      combinedIds.push(id);
+    }
+  }
+
   if (isIndex) {
     const indexNum = parseInt(reg_userid, 10);
 
     // Build stable combined account list: jar order first, then session-only accounts appended
-    const jarAccountIds = jarCookie ? jarCookie.split(',').filter(Boolean) : [];
-    const combinedIds = [...jarAccountIds];
-
-    // Append session accounts not already in jar
-    for (const id of sessionAccountIds) {
-      if (!combinedIds.includes(id)) {
-        combinedIds.push(id);
-      }
-    }
-
     if (indexNum < 0 || indexNum >= combinedIds.length) {
       notFound();
     }
@@ -98,8 +98,26 @@ export default async function ConnectedAppsPage({ params }: PageProps) {
     );
   }
 
-  // Account exists in jar but session expired — show reauth wall
-  if (isNeedsReauth) {
+  const topSignedInAccountId = combinedIds.find((id) => sessionAccountIds.has(id)) || null;
+  const hasAnySignedInAccount = topSignedInAccountId !== null;
+  const hasRememberedJarAccounts = jarAccountIds.length > 0;
+
+  if (isNeedsReauth && hasAnySignedInAccount) {
+    const targetId = topSignedInAccountId!;
+    const redirectIndex = combinedIds.indexOf(targetId);
+    const redirectSegment = redirectIndex >= 0 ? String(redirectIndex) : targetId;
+    redirect(`/u/${redirectSegment}/connected-apps`);
+  }
+
+  // Reauth wall only when remembered accounts exist but all are signed out.
+  if (isNeedsReauth && hasRememberedJarAccounts && !hasAnySignedInAccount) {
+    const topRememberedAccountId = await getTopRememberedAccountId(jarCookie);
+    if (topRememberedAccountId && accountId !== topRememberedAccountId) {
+      const redirectIndex = combinedIds.indexOf(topRememberedAccountId);
+      const redirectSegment = redirectIndex >= 0 ? String(redirectIndex) : topRememberedAccountId;
+      redirect(`/u/${redirectSegment}/connected-apps`);
+    }
+
     const emailParts = account.email.split("@");
     const maskedEmail =
       emailParts[0].substring(0, 2) + "***@" + (emailParts[1] || "");
@@ -110,6 +128,7 @@ export default async function ConnectedAppsPage({ params }: PageProps) {
         maskedEmail={maskedEmail}
         email={account.email}
         initial={account.name?.charAt(0)?.toUpperCase() || "?"}
+        imageUrl={account.profile_image_url}
         returnTo={`/u/${reg_userid}/connected-apps`}
       />
     );

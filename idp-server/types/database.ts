@@ -29,6 +29,7 @@ export type SessionLogonWithAllFields = SessionLogon & {
     email: string;
     name: string;
     is_primary: boolean | null;
+    profile_image_url?: string | null;
   } | null;
 };
 

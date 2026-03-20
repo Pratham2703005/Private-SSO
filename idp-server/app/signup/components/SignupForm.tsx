@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { initAuthTheme } from '@/lib/auth-theme';
 import { AuthCard } from '@/app/components/auth/AuthCard';
 import { AuthInput } from '@/app/components/auth/AuthInput';
+import { getAvatarColorByName } from '@/lib/avatar-colors';
 
 type SignupStep = 'nameEmail' | 'password' | 'profile';
 
@@ -245,6 +246,8 @@ export default function SignupForm() {
   });
 
   const signInHref = `/login${authParams.toString() ? `?${authParams.toString()}` : ''}`;
+  const signupIdentity = `${formData.firstName} ${formData.lastName}`.trim() || formData.email;
+  const signupAvatarColor = getAvatarColorByName(signupIdentity);
   const stepCopy = {
     nameEmail: {
       title: 'Create your account',
@@ -278,7 +281,13 @@ export default function SignupForm() {
           </p>
 
           {step !== 'nameEmail' && formData.email && (
-            <div className="mt-6 inline-flex items-center rounded-full border border-(--border) px-4 py-2 text-sm text-(--text-secondary) transition-colors duration-300">
+            <div className="mt-6 inline-flex items-center rounded-full border border-border px-4 py-2 text-sm text-(--text-secondary) transition-colors duration-300">
+              <span
+                className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold text-white"
+                style={{ backgroundColor: signupAvatarColor }}
+              >
+                {(signupIdentity || '?').charAt(0).toUpperCase()}
+              </span>
               {formData.email}
             </div>
           )}
@@ -408,7 +417,7 @@ export default function SignupForm() {
                   name="dob"
                   value={formData.dob || ''}
                   onChange={handleChange}
-                  className="mt-2 w-full rounded-2xl border border-(--border) bg-(--input-bg) px-4 py-3 text-(--text) transition-colors duration-200 focus:border-(--input-focus) focus:outline-none"
+                  className="mt-2 w-full rounded-2xl border border-border bg-(--input-bg) px-4 py-3 text-(--text) transition-colors duration-200 focus:border-(--input-focus) focus:outline-none"
                 />
               </div>
 
@@ -436,7 +445,7 @@ export default function SignupForm() {
                       setFormData((prev) => ({ ...prev, profilePhoto: file }));
                     }
                   }}
-                  className="mt-2 w-full rounded-2xl border border-(--border) bg-(--input-bg) px-4 py-3 text-(--text) transition-colors duration-200"
+                  className="mt-2 w-full rounded-2xl border border-border bg-(--input-bg) px-4 py-3 text-(--text) transition-colors duration-200"
                 />
               </div>
 

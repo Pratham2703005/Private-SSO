@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { getAvatarColorByChar } from "@/lib/avatar-colors";
 
 interface ReauthWallProps {
   name: string;
   maskedEmail: string;
   email: string;
   initial: string;
+  imageUrl?: string | null;
   returnTo?: string;
 }
 
@@ -17,20 +19,33 @@ interface ReauthWallProps {
  * Google-style: shows minimal identity + "Sign in again" prompt.
  * Does NOT show full profile for signed-out accounts.
  */
-export function ReauthWall({ name, maskedEmail, email, initial, returnTo }: ReauthWallProps) {
+export function ReauthWall({ name, maskedEmail, email, initial, imageUrl, returnTo }: ReauthWallProps) {
   let loginUrl = `/login?login_hint=${encodeURIComponent(email)}`;
   if (returnTo) {
     loginUrl += `&return_to=${encodeURIComponent(returnTo)}`;
   }
+  const avatarColor = getAvatarColorByChar(initial);
 
   return (
     <div className="h-full flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
         {/* Header */}
         <div className="px-8 pt-10 pb-6 text-center">
-          {/* Avatar circle with initial */}
-          <div className="mx-auto mb-6 w-20 h-20 rounded-full bg-linear-to-br from-gray-300 to-gray-400 flex items-center justify-center text-white text-3xl font-semibold opacity-70">
-            {initial}
+          {/* Avatar circle with profile image fallback */}
+          <div
+            className="mx-auto mb-6 w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl font-semibold opacity-70 overflow-hidden"
+            style={{ backgroundColor: avatarColor }}
+          >
+            {imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={imageUrl}
+                alt={name || email}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              initial
+            )}
           </div>
 
           {/* Lock icon */}

@@ -34,6 +34,7 @@ export default async function PersonalInfoPage({ params }: PageProps) {
         maskedEmail={getMaskedEmailForReauth(resolution.account)}
         email={resolution.account.email}
         initial={resolution.account.name?.charAt(0)?.toUpperCase() || "?"}
+        imageUrl={resolution.account.profile_image_url}
         returnTo={resolution.returnTo}
       />
     );

@@ -838,7 +838,7 @@ export async function getSessionLogons(sessionId: string): Promise<SessionLogonW
         revoked,
         revoked_at,
         created_at,
-        account:account_id(id, email, name, is_primary)
+        account:account_id(id, email, name, is_primary, profile_image_url)
       `
       )
       .eq("session_id", sessionId)

@@ -7,7 +7,7 @@
  * 2. Without active session: returns idp_jar remembered accounts (Google-style "Signed out" state)
  *
  * Security:
- * - Returns minimal info only (id, email, name, avatar_url, index)
+ * - Returns minimal info only (id, email, name, profile_image_url, index)
  * - No tokens returned
  * - IDs from idp_jar are unprivileged account references
  */
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
             id: acc.id,
             email: acc.email,
             name: acc.name,
-            avatar_url: acc.avatar_url,
+            profile_image_url: acc.profile_image_url,
             isPrimary: acc.isPrimary,
           }));
 
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
     // Fetch account details from database
     const { data: accountsData, error } = await supabase
       .from('user_accounts')
-      .select('id, email, name')
+      .select('id, email, name, profile_image_url')
       .in('id', accountIds);
 
     if (error) {
@@ -106,6 +106,7 @@ export async function GET(request: NextRequest) {
           id: account.id,
           email: account.email,
           name: account.name,
+          profile_image_url: account.profile_image_url ?? null,
           isPrimary: false,
         };
       })

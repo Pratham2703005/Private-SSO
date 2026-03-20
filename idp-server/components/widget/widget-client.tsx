@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { IndexedAccount } from '@/lib/account-indexing';
 import { getThemeClasses } from '@/lib/theme-config';
+import { AvatarImage } from '@/components/ui';
+import { getAvatarColorByName } from '@/lib/avatar-colors';
 
 interface WidgetClientState {
   accounts: IndexedAccount[];
@@ -250,6 +252,9 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
   const otherAccounts = displayAccounts.slice(1);
   const hasAnyActiveSession = displayAccounts.some(a => a.accountState === 'active' || a.accountState === 'can_switch');
   const signedInAccountsCount = displayAccounts.filter(a => a.accountState === 'active' || a.accountState === 'can_switch').length;
+  const activeConnectedAppsUrl = activeAccount
+    ? `/u/${encodeURIComponent(String(activeAccount.jarIndex ?? activeAccount.index))}/personal-info/profile-picture`
+    : '';
 
   // Track last sent state to avoid spamming parent with duplicate messages
   const lastSentStateRef = useRef<string>('');
@@ -266,7 +271,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
       ? {
           name: previewAccount.name,
           email: previewAccount.email,
-          avatarUrl: previewAccount.avatar_url || null,
+          avatarUrl: previewAccount.profile_image_url || null,
         }
       : null;
 
@@ -292,7 +297,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
   // No accounts at all (no jar, no session) — just show "Add account"
   if (!activeAccount) {
     return (
-      <div className={`w-full max-w-md ${theme.colors.cardBackground} ${theme.styles.cardBorderRadius} ${theme.styles.cardShadow} overflow-hidden`}>
+      <div className={`w-full max-w-md ${theme.colors.cardBackground} ${theme.styles.cardShadow} overflow-hidden`}>
         <div className="px-6 py-8 text-center flex flex-col items-center gap-4">
           <div className="text-4xl">🔐</div>
           <p className={`text-sm ${theme.colors.bodyText}`}>No accounts found</p>
@@ -309,7 +314,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
   }
 
   return (
-    <div className={`w-full max-w-md ${theme.colors.cardBackground} ${theme.styles.cardBorderRadius} ${theme.styles.cardShadow} overflow-hidden relative`}>
+    <div className={`w-full max-w-md ${theme.colors.cardBackground} ${theme.styles.cardShadow} overflow-hidden relative`}>
       {/* Switching overlay */}
       {state.switching && (
         <div className="absolute inset-0 bg-white/70 z-50 flex items-center justify-center backdrop-blur-[1px]">
@@ -323,20 +328,13 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
       {/* Active Account Card */}
       <div className={`flex flex-col items-center justify-center py-8 px-6 border-b ${theme.colors.dividerBorder}`}>
         {/* Avatar */}
-        <div className={`mb-4 relative w-20 h-20 ${theme.styles.avatarShadow}`}>
-          {activeAccount.avatar_url ? (
-            <Image
-              src={activeAccount.avatar_url}
-              alt={activeAccount.name}
-              fill
-              className={`${theme.styles.avatarBorderRadius} object-cover`}
-              priority
-            />
-          ) : (
-            <div className={`w-20 h-20 ${theme.styles.avatarBorderRadius} bg-linear-to-br ${theme.colors.avatarGradientFrom} ${theme.colors.avatarGradientTo} flex items-center justify-center text-white text-3xl font-semibold`}>
-              {activeAccount.name.charAt(0).toUpperCase()}
-            </div>
-          )}
+        <div className={`mb-4 ${activeAccount.accountState === 'needs_reauth' ? 'opacity-70' : ''}`}>
+          <AvatarImage
+            name={activeAccount.name}
+            imageUrl={activeAccount.profile_image_url}
+            redirectUrl={activeConnectedAppsUrl}
+            size={80}
+          />
         </div>
 
         {/* Status Badge for needs_reauth */}
@@ -404,15 +402,18 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
               >
                 {/* Avatar */}
                 <div className={`relative w-10 h-10 shrink-0 ${account.accountState === 'needs_reauth' ? 'opacity-60' : ''}`}>
-                  {account.avatar_url ? (
+                  {account.profile_image_url ? (
                     <Image
-                      src={account.avatar_url}
+                      src={account.profile_image_url}
                       alt={account.name}
                       fill
                       className={`${theme.styles.avatarBorderRadius} object-cover`}
                     />
                   ) : (
-                    <div className={`w-10 h-10 ${theme.styles.avatarBorderRadius} bg-linear-to-br ${theme.colors.avatarGradientFrom} ${theme.colors.avatarGradientTo} flex items-center justify-center text-white font-medium`}>
+                    <div
+                      className={`w-10 h-10 ${theme.styles.avatarBorderRadius} flex items-center justify-center text-white font-medium`}
+                      style={{ backgroundColor: getAvatarColorByName(account.name) }}
+                    >
                       {account.name.charAt(0).toUpperCase()}
                     </div>
                   )}

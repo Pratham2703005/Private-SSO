@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { getAvatarColorByName } from "@/lib/avatar-colors";
 
 interface AvatarProps {
   name?: string;
@@ -29,24 +30,18 @@ export function AvatarImage({
 }: AvatarProps) {
   const [preview, setPreview] = useState<string | null>(imageUrl || null);
   const [hovered, setHovered] = useState(false);
+  const [cameraHovered, setCameraHovered] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Derive initials from name
-  const initials = name
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0]?.toUpperCase())
-    .slice(0, 2)
-    .join("");
+  // Derive a single initial from the name
+  const initials = name.trim().charAt(0).toUpperCase() || "U";
 
-  // Deterministic hue from name string
-  const hue =
-    name.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % 360;
-  const bgColor = `hsl(${hue}, 45%, 32%)`;
+  const bgColor = getAvatarColorByName(name);
 
-  const fontSize = size * 0.38;
-  const cameraSize = size * 0.3;
-  const cameraBadgeOffset = size * 0.04;
+  const sizePx = `${size}px`;
+  const fontSizePx = `${size * 0.38}px`;
+  const cameraSizePx = `${size * 0.3}px`;
+  const cameraBadgeOffsetPx = `${size * 0.04}px`;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -66,7 +61,12 @@ export function AvatarImage({
     if (onImageChange) {
       fileInputRef.current?.click();
     } else if (redirectUrl) {
-      window.open(redirectUrl, "noopener,noreferrer");
+      try {
+        const targetWindow = window.top && window.top !== window ? window.top : window;
+        targetWindow.location.href = redirectUrl;
+      } catch {
+        window.location.href = redirectUrl;
+      }
     }
   };
 
@@ -75,8 +75,8 @@ export function AvatarImage({
       style={{
         position: "relative",
         display: "inline-block",
-        width: size,
-        height: size,
+        width: sizePx,
+        height: sizePx,
         cursor: "pointer",
         userSelect: "none",
       }}
@@ -90,8 +90,8 @@ export function AvatarImage({
       {/* Circle */}
       <div
         style={{
-          width: size,
-          height: size,
+          width: sizePx,
+          height: sizePx,
           borderRadius: "50%",
           backgroundColor: bgColor,
           overflow: "hidden",
@@ -117,7 +117,7 @@ export function AvatarImage({
           <span
             style={{
               color: "#fff",
-              fontSize,
+              fontSize: fontSizePx,
               fontWeight: 600,
               fontFamily: "'Segoe UI', system-ui, sans-serif",
               letterSpacing: "0.02em",
@@ -135,26 +135,23 @@ export function AvatarImage({
         title="Change photo"
         style={{
           position: "absolute",
-          bottom: cameraBadgeOffset,
-          right: cameraBadgeOffset,
-          width: cameraSize,
-          height: cameraSize,
+          bottom: cameraBadgeOffsetPx,
+          right: cameraBadgeOffsetPx,
+          width: cameraSizePx,
+          height: cameraSizePx,
           borderRadius: "50%",
-          backgroundColor: "#fff",
+          backgroundColor: cameraHovered ? "#f0f0f0" : "#fff",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           cursor: "pointer",
           padding: 0,
+          outline: "none",
         }}
-        onMouseEnter={(e) =>
-          (e.currentTarget.style.backgroundColor = "#f0f0f0")
-        }
-        onMouseLeave={(e) =>
-          (e.currentTarget.style.backgroundColor = "#fff")
-        }
+        onMouseEnter={() => setCameraHovered(true)}
+        onMouseLeave={() => setCameraHovered(false)}
       >
-        <CameraIcon size={cameraSize * 0.55} />
+        <CameraIcon size={size * 0.3 * 0.55} />
       </button>
 
       <input

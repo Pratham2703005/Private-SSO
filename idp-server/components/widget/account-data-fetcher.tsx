@@ -76,7 +76,7 @@ export async function AccountDataFetcher({
             const accountsData = (
               await supabase
                 .from('user_accounts')
-                .select('id, name, email')
+                .select('id, name, email, profile_image_url')
                 .in('id', jarAccountsToCheck)
             ).data || [];
             console.log('[AccountDataFetcher] DB found', accountsData.length, 'jar accounts');
@@ -128,7 +128,7 @@ export async function AccountDataFetcher({
                   id: account.id,
                   name: account.name,
                   email: account.email,
-                  avatar_url: undefined,
+                  profile_image_url: account.profile_image_url ?? undefined,
                   isPrimary: false,
                   logged_in_at: new Date().toISOString(),
                   last_active_at: new Date().toISOString(),

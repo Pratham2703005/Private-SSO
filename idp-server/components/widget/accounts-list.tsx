@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { IndexedAccount } from '@/lib/account-indexing';
 import { getThemeClasses } from '@/lib/theme-config';
+import { ProfileAvatar } from '@/components/ui';
 
 interface AccountsListProps {
   accounts: IndexedAccount[];
@@ -89,20 +89,11 @@ export default function AccountsList({ accounts, activeIndex }: AccountsListProp
               type="button"
             >
               {/* Avatar */}
-              <div className="relative w-10 h-10 shrink-0">
-                {account.avatar_url ? (
-                  <Image
-                    src={account.avatar_url}
-                    alt={account.name}
-                    fill
-                    className={`${theme.styles.avatarBorderRadius} object-cover`}
-                  />
-                ) : (
-                  <div className={`w-10 h-10 ${theme.styles.avatarBorderRadius} bg-linear-to-br ${theme.colors.avatarGradientFrom} ${theme.colors.avatarGradientTo} flex items-center justify-center text-white text-sm font-semibold`}>
-                    {account.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </div>
+              <ProfileAvatar
+                name={account.name}
+                email={account.email}
+                size="sm"
+              />
 
               {/* Account Info */}
               <div className="flex-1 min-w-0">

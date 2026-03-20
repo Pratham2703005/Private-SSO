@@ -4,25 +4,12 @@
  * <script src="https://idp.com/widget.js"></script>
  */
 
-import { ACTIVE_THEME } from '@/lib/theme-config';
-
-// Map Tailwind gradient classes to hex values (covers all 8 themes)
-const TAILWIND_TO_HEX: Record<string, string> = {
-  'from-pink-400': '#f472b6', 'to-pink-600': '#db2777',
-  'from-indigo-400': '#818cf8', 'to-indigo-600': '#4f46e5',
-  'from-blue-400': '#60a5fa', 'to-blue-600': '#2563eb',
-  'from-purple-400': '#c084fc', 'to-pink-500': '#ec4899',
-  'from-cyan-400': '#22d3ee', 'to-blue-500': '#3b82f6',
-  'from-orange-400': '#fb923c', 'to-red-500': '#ef4444',
-  'from-emerald-400': '#34d399', 'to-teal-500': '#14b8a6',
-  'from-gray-600': '#4b5563', 'to-gray-800': '#1f2937',
-};
+import { AVATAR_CHAR_COLOR_MAP } from '@/lib/avatar-colors';
 
 export async function GET() {
   const idpOrigin = process.env.NEXT_PUBLIC_IDP_URL || 'http://localhost:3000';
   const widgetUrl = `${idpOrigin}/widget/account-switcher`;
-  const avatarGradFrom = TAILWIND_TO_HEX[ACTIVE_THEME.colors.avatarGradientFrom] || '#667eea';
-  const avatarGradTo = TAILWIND_TO_HEX[ACTIVE_THEME.colors.avatarGradientTo] || '#764ba2';
+  const avatarColorMapJson = JSON.stringify(AVATAR_CHAR_COLOR_MAP);
 
   const widgetScript = `
 (function(window) {
@@ -37,8 +24,7 @@ export async function GET() {
 
   const IDP_ORIGIN = '${idpOrigin}';
   const WIDGET_URL = '${widgetUrl}';
-  const AVATAR_GRADIENT_FROM = '${avatarGradFrom}';
-  const AVATAR_GRADIENT_TO = '${avatarGradTo}';
+  const AVATAR_CHAR_COLOR_MAP = ${avatarColorMapJson};
   let iframeModal = null;
   let iframe = null;
   let parentOrigin = null;
@@ -289,7 +275,7 @@ export async function GET() {
                   activeAccountPreview: {
                     name: data.user.name || '?',
                     email: data.user.email || '',
-                    avatarUrl: data.user.avatar_url || null
+                    avatarUrl: data.user.profile_image_url || null
                   },
                   dataLoaded: true
                 };
@@ -700,7 +686,7 @@ export async function GET() {
             activeAccountPreview: {
               name: remembered.name || '?',
               email: remembered.email || '',
-              avatarUrl: remembered.avatar_url || null
+              avatarUrl: remembered.profile_image_url || null
             },
             dataLoaded: true
           };
@@ -719,11 +705,15 @@ export async function GET() {
       });
   }
 
-  // Render a gradient circle with the user's initial inside the button
-  // Uses theme-matched gradient colors (injected at serve time)
+  // Render a solid-color circle with the user's initial inside the button
   // NOTE: Does NOT set width/height — caller's cssText already sets buttonSize
+  function getAvatarColor(name) {
+    var firstChar = ((name || '').trim().charAt(0) || '').toUpperCase();
+    return AVATAR_CHAR_COLOR_MAP[firstChar] || '#475569';
+  }
+
   function renderInitialAvatar(btn, name) {
-    btn.style.background = 'linear-gradient(135deg, ' + AVATAR_GRADIENT_FROM + ' 0%, ' + AVATAR_GRADIENT_TO + ' 100%)';
+    btn.style.background = getAvatarColor(name);
     var initial = document.createElement('span');
     initial.textContent = (name || '?').charAt(0).toUpperCase();
     initial.style.cssText = 'font-size: 18px; font-weight: 600; color: white; line-height: 1; user-select: none;';
@@ -839,7 +829,7 @@ export async function GET() {
               activeAccountPreview: {
                 name: data.user.name || data.account?.name || '?',
                 email: data.user.email || data.account?.email || '',
-                avatarUrl: data.user.avatar_url || null
+                avatarUrl: data.user.profile_image_url || null
               },
               dataLoaded: true
             };

@@ -12,7 +12,7 @@ export interface IndexedAccount {
   id: string;
   email: string;
   name: string;
-  avatar_url?: string;
+  profile_image_url?: string | null;
   isPrimary: boolean;
   logged_in_at: string;
   last_active_at: string | null;
@@ -97,7 +97,7 @@ export async function getAllAccountsWithIndices(
       .map((logon, accountIndex) => ({
         index: accountIndex,
         id: logon.account_id,
-        avatar_url: undefined,
+        profile_image_url: logon.account?.profile_image_url ?? undefined,
         email: logon.account?.email ?? 'unknown',
         name: logon.account?.name ?? 'Unknown',
         isPrimary: logon.account?.is_primary ?? false,
@@ -166,7 +166,7 @@ export async function getAccountByCombinedIndex(
       if (jarAccountsToCheck.length > 0) {
         const response = await supabase
           .from('user_accounts')
-          .select('id, name, email, avatar_url, is_primary')
+          .select('id, name, email, profile_image_url, is_primary')
           .in('id', jarAccountsToCheck);
 
         const accountsData = response.data || [];
@@ -178,7 +178,7 @@ export async function getAccountByCombinedIndex(
               id: account.id,
               name: account.name,
               email: account.email,
-              avatar_url: account.avatar_url || undefined,
+              profile_image_url: account.profile_image_url || undefined,
               isPrimary: account.is_primary ?? false,
               logged_in_at: new Date().toISOString(),
               last_active_at: new Date().toISOString(),
@@ -204,6 +204,36 @@ export async function getAccountByCombinedIndex(
     return allAccounts[index];
   } catch (error) {
     console.error('[AccountIndexing] Error in getAccountByCombinedIndex:', error);
+    return null;
+  }
+}
+
+/**
+ * Resolve the top remembered account ID using the same DB fetch behavior
+ * used by widget remembered-account loading.
+ */
+export async function getTopRememberedAccountId(
+  jarCookieValue: string | null,
+): Promise<string | null> {
+  try {
+    if (!jarCookieValue) return null;
+
+    const jarAccountIds = jarCookieValue.split(',').filter(Boolean);
+    if (jarAccountIds.length === 0) return null;
+
+    const response = await supabase
+      .from('user_accounts')
+      .select('id')
+      .in('id', jarAccountIds);
+
+    const accountsData = response.data || [];
+    if (accountsData.length > 0) {
+      return accountsData[0].id;
+    }
+
+    return jarAccountIds[0] || null;
+  } catch (error) {
+    console.error('[AccountIndexing] Error getting top remembered account id:', error);
     return null;
   }
 }

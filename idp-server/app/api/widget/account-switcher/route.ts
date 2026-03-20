@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
         try {
           const response = await supabase
             .from('user_accounts')
-            .select('id, name, email')
+            .select('id, name, email, profile_image_url')
             .in('id', jarAccountsToCheck);
 
           const accountsData = response.data || [];
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
                 id: account.id,
                 name: account.name,
                 email: account.email,
-                avatar_url: undefined,
+                profile_image_url: account.profile_image_url ?? undefined,
                 isPrimary: false,
                 logged_in_at: new Date().toISOString(),
                 last_active_at: new Date().toISOString(),

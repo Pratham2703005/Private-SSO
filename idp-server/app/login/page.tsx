@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { initAuthTheme } from '@/lib/auth-theme';
 import { AuthCard } from '@/app/components/auth/AuthCard';
 import { AuthInput } from '@/app/components/auth/AuthInput';
+import { getAvatarColorByName } from '@/lib/avatar-colors';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function LoginPage() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const avatarColor = getAvatarColorByName(formData.email);
 
   useEffect(() => {
     initAuthTheme();
@@ -208,8 +210,10 @@ export default function LoginPage() {
             {/* Left: Account Info */}
             <div className="flex flex-col items-center md:items-start text-center md:text-left">
               {/* Avatar */}
-              <div className="w-16 h-16 rounded-full bg-(--blue-btn)
-                flex items-center justify-center text-white text-2xl font-medium mb-4">
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-medium mb-4"
+                style={{ backgroundColor: avatarColor }}
+              >
                 {formData.email[0].toUpperCase()}
               </div>
               

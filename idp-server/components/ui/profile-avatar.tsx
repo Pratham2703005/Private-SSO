@@ -1,4 +1,5 @@
 import { getUserInitial } from "@/utils/account-helpers";
+import { getAvatarColorByName } from "@/lib/avatar-colors";
 
 interface ProfileAvatarProps {
   name: string;
@@ -24,6 +25,7 @@ export function ProfileAvatar({
   imageUrl,
 }: ProfileAvatarProps) {
   const initial = getUserInitial(name, email);
+  const avatarColor = getAvatarColorByName(name || email);
   const borderClass = showBorder
     ? "ring-4 ring-white shadow-lg"
     : "";
@@ -31,7 +33,7 @@ export function ProfileAvatar({
   if (imageUrl) {
     return (
       <div
-        className={`${sizeClasses[size]} ${borderClass} rounded-full flex-shrink-0 overflow-hidden`}
+        className={`${sizeClasses[size]} ${borderClass} rounded-full shrink-0 overflow-hidden`}
       >
         <img
           src={imageUrl}
@@ -44,7 +46,8 @@ export function ProfileAvatar({
 
   return (
     <div
-      className={`${sizeClasses[size]} ${borderClass} bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0`}
+      className={`${sizeClasses[size]} ${borderClass} rounded-full flex items-center justify-center text-white font-bold shrink-0`}
+      style={{ backgroundColor: avatarColor }}
     >
       {initial}
     </div>

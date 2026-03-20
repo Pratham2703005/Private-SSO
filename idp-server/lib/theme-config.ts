@@ -42,13 +42,11 @@ export interface WidgetTheme {
   
   styles: {
     // Border radius
-    cardBorderRadius: string;
     buttonBorderRadius: string;
     avatarBorderRadius: string;
     
     // Shadows
     cardShadow: string;
-    avatarShadow: string;
     
     // Spacing
     cardPadding: string;
@@ -60,31 +58,29 @@ export interface WidgetTheme {
 const googleClassicTheme: WidgetTheme = {
   name: 'Google Classic',
   colors: {
-    pageBackground: 'bg-[#e8f0fe]',
+    pageBackground: 'bg-[#e8f9e8]',
     cardBackground: 'bg-white',
     avatarGradientFrom: 'from-pink-400',
     avatarGradientTo: 'to-pink-600',
-    primaryButtonBg: 'bg-white',
-    primaryButtonBgHover: 'hover:bg-gray-50',
+    primaryButtonBg: 'bg-[#e8f9e8]',
+    primaryButtonBgHover: 'hover:bg-gray-200',
     primaryButtonText: 'text-blue-600',
     primaryButtonBorder: 'border-2 border-gray-300',
     headingText: 'text-gray-900',
     bodyText: 'text-gray-700',
     mutedText: 'text-gray-600',
-    hoverBackground: 'hover:bg-gray-50',
-    collapsibleHover: 'hover:bg-gray-50',
+    hoverBackground: 'hover:bg-gray-200',
+    collapsibleHover: 'hover:bg-gray-200',
     dividerBorder: 'border-gray-200',
     addAccountIcon: 'text-blue-600',
     signoutIcon: 'text-gray-700',
     signoutText: 'text-gray-700',
-    signoutHover: 'hover:bg-gray-50',
+    signoutHover: 'hover:bg-gray-200',
   },
   styles: {
-    cardBorderRadius: 'rounded-3xl',
     buttonBorderRadius: 'rounded-full',
     avatarBorderRadius: 'rounded-full',
     cardShadow: 'shadow-xl',
-    avatarShadow: 'shadow-md',
     cardPadding: 'p-6',
     sectionSpacing: 'space-y-4',
   },
@@ -114,11 +110,9 @@ const modernMinimalTheme: WidgetTheme = {
     signoutHover: 'hover:bg-gray-50',
   },
   styles: {
-    cardBorderRadius: 'rounded-2xl',
     buttonBorderRadius: 'rounded-full',
     avatarBorderRadius: 'rounded-full',
     cardShadow: 'shadow-lg',
-    avatarShadow: 'shadow-sm',
     cardPadding: 'p-6',
     sectionSpacing: 'space-y-3',
   },
@@ -148,11 +142,9 @@ const oceanBlueTheme: WidgetTheme = {
     signoutHover: 'hover:bg-blue-50',
   },
   styles: {
-    cardBorderRadius: 'rounded-3xl',
     buttonBorderRadius: 'rounded-full',
     avatarBorderRadius: 'rounded-full',
     cardShadow: 'shadow-xl shadow-blue-100/50',
-    avatarShadow: 'shadow-md',
     cardPadding: 'p-6',
     sectionSpacing: 'space-y-4',
   },
@@ -182,11 +174,9 @@ const purpleGradientTheme: WidgetTheme = {
     signoutHover: 'hover:bg-purple-50',
   },
   styles: {
-    cardBorderRadius: 'rounded-3xl',
     buttonBorderRadius: 'rounded-full',
     avatarBorderRadius: 'rounded-full',
     cardShadow: 'shadow-2xl shadow-purple-100/50',
-    avatarShadow: 'shadow-lg',
     cardPadding: 'p-6',
     sectionSpacing: 'space-y-4',
   },
@@ -216,11 +206,9 @@ const darkElegantTheme: WidgetTheme = {
     signoutHover: 'hover:bg-gray-700',
   },
   styles: {
-    cardBorderRadius: 'rounded-3xl',
     buttonBorderRadius: 'rounded-full',
     avatarBorderRadius: 'rounded-full',
     cardShadow: 'shadow-2xl shadow-black/50',
-    avatarShadow: 'shadow-lg',
     cardPadding: 'p-6',
     sectionSpacing: 'space-y-4',
   },
@@ -250,11 +238,9 @@ const warmSunsetTheme: WidgetTheme = {
     signoutHover: 'hover:bg-orange-50',
   },
   styles: {
-    cardBorderRadius: 'rounded-3xl',
     buttonBorderRadius: 'rounded-full',
     avatarBorderRadius: 'rounded-full',
     cardShadow: 'shadow-2xl shadow-orange-100/50',
-    avatarShadow: 'shadow-md',
     cardPadding: 'p-6',
     sectionSpacing: 'space-y-4',
   },
@@ -284,11 +270,9 @@ const forestGreenTheme: WidgetTheme = {
     signoutHover: 'hover:bg-emerald-50',
   },
   styles: {
-    cardBorderRadius: 'rounded-3xl',
     buttonBorderRadius: 'rounded-full',
     avatarBorderRadius: 'rounded-full',
     cardShadow: 'shadow-2xl shadow-emerald-100/50',
-    avatarShadow: 'shadow-md',
     cardPadding: 'p-6',
     sectionSpacing: 'space-y-4',
   },
@@ -318,11 +302,9 @@ const monochromeProfessionalTheme: WidgetTheme = {
     signoutHover: 'hover:bg-gray-100',
   },
   styles: {
-    cardBorderRadius: 'rounded-2xl',
     buttonBorderRadius: 'rounded-full',
     avatarBorderRadius: 'rounded-full',
     cardShadow: 'shadow-xl',
-    avatarShadow: 'shadow-sm',
     cardPadding: 'p-6',
     sectionSpacing: 'space-y-3',
   },
@@ -341,7 +323,7 @@ export const THEMES = {
 } as const;
 
 // ⚡ CHANGE THEME HERE - Just update this line to switch themes
-export const ACTIVE_THEME: WidgetTheme = THEMES.monochromeProfessional;
+export const ACTIVE_THEME: WidgetTheme = THEMES.googleClassic;
 
 // Helper function to get theme classes
 export const getThemeClasses = () => ACTIVE_THEME;
