@@ -325,10 +325,11 @@ export async function GET() {
 
     // Handle: contentHeightChanged (iframe content height changed)
     if (event.data.type === 'contentHeightChanged') {
-      const newHeight = event.data.height;
+      var newHeight = event.data.height;
       if (iframe && newHeight > 0) {
-        iframe.style.height = newHeight + 'px';
-        console.log('[AccountSwitcher] Iframe height updated to:', newHeight);
+        var maxHeight = window.innerHeight * 0.8;
+        iframe.style.height = Math.min(newHeight, maxHeight) + 'px';
+        console.log('[AccountSwitcher] Iframe height updated to:', Math.min(newHeight, maxHeight));
       }
       return;
     }

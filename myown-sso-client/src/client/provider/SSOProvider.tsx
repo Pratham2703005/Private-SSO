@@ -319,12 +319,32 @@ export function SSOProvider({
     };
   }, [enableWidget, idpServer, clientId, redirectUri, scope, fetchSessionWithDedup, onSessionUpdate, onError]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      await fetch(API_PATHS.logout, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: 'app' }),
+      });
+    } catch (err) {
+      console.error('[SSOProvider] Logout request failed:', err);
+    }
     setSession(null);
     emitterRef.current.emit('logout', undefined);
   }, []);
 
-  const globalLogout = useCallback(() => {
+  const globalLogout = useCallback(async () => {
+    try {
+      await fetch(API_PATHS.logout, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: 'global' }),
+      });
+    } catch (err) {
+      console.error('[SSOProvider] Global logout request failed:', err);
+    }
     setSession(null);
     emitterRef.current.emit('globalLogout', undefined);
 

@@ -54,6 +54,11 @@ export interface ValidateSessionConfig {
   oauthSecret?: string;
 }
 
+export interface HandleLogoutConfig {
+  clientId: string;
+  idpServer: string;
+}
+
 export interface ValidateSessionResponse {
   authenticated: boolean;
   user?: User;
@@ -90,8 +95,8 @@ export interface SSOContextValue {
   loading: boolean;
   error: Error | null;
   signIn: (email?: string, prompt?: string) => Promise<void>;
-  logout: () => void;
-  globalLogout: () => void;
+  logout: () => Promise<void>;
+  globalLogout: () => Promise<void>;
   refresh: () => Promise<SessionData | null>;
   switchAccount: (accountId: string) => Promise<void>;
   on: (event: EventType, callback: EventCallback) => () => void;

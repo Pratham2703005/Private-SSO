@@ -39,10 +39,12 @@ export const COOKIE_DEFAULTS = {
 export const API_PATHS = {
   authStart: '/api/auth/start',
   authCallback: '/api/auth/callback',
+  logout: '/api/auth/logout',
   me: '/api/me',
   idpAuthorize: '/api/auth/authorize',
   idpToken: '/api/auth/token',
   idpSession: '/api/auth/session',
+  idpLogout: '/api/auth/logout',
 } as const;
 
 // Helper to get secure flag based on environment

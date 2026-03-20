@@ -35,6 +35,7 @@ export { IframeMessenger } from './client/widget/iframe-messenger';
 export { startAuth } from './server/start-auth';
 export { handleCallback } from './server/callback';
 export { validateSession } from './server/validate-session';
+export { handleLogout } from './server/handle-logout';
 
 // Shared exports
 export type {
@@ -45,6 +46,7 @@ export type {
   StartAuthConfig,
   HandleCallbackConfig,
   ValidateSessionConfig,
+  HandleLogoutConfig,
   EventType,
   EventCallback,
   WidgetMessage,

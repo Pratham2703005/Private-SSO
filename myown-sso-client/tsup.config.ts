@@ -17,6 +17,7 @@ export default defineConfig([
       "server/start-auth": "src/server/start-auth.ts",
       "server/callback": "src/server/callback.ts",
       "server/validate-session": "src/server/validate-session.ts",
+      "server/handle-logout": "src/server/handle-logout.ts",
       server: "src/server/index.ts",
     },
     format: ["esm", "cjs"],
