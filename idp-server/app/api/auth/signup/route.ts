@@ -133,12 +133,13 @@ export async function POST(request: NextRequest) {
       jarIds.push(account.id);
     }
     const trimmedJar = jarIds.slice(-10).join(",");
+    const isProduction = process.env.NODE_ENV === "production";
     response.cookies.set({
       name: "idp_jar",
       value: trimmedJar,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       maxAge: 365 * 24 * 60 * 60, // 1 year
       path: "/",
     });
