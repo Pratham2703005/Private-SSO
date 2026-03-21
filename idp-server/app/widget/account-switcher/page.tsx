@@ -34,7 +34,7 @@ export default async function AccountSwitcherPage({ searchParams }: PageProps) {
   const theme = getThemeClasses();
 
   // Detect cross-site iframe context: parentOrigin differs from IDP origin
-  const idpOrigin = process.env.NEXT_PUBLIC_IDP_URL || '';
+  const idpOrigin = process.env.NEXT_PUBLIC_IDP_URL;
   const isEmbeddedCrossSite = !!params.parentOrigin && params.parentOrigin !== idpOrigin;
 
   return (
