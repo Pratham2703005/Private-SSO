@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { initAuthTheme } from '@/lib/auth-theme';
 import { AuthCard } from '@/app/components/auth/AuthCard';
@@ -8,6 +8,14 @@ import { AuthInput } from '@/app/components/auth/AuthInput';
 import { getAvatarColorByName } from '@/lib/avatar-colors';
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 

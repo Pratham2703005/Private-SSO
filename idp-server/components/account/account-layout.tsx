@@ -20,7 +20,7 @@ export function AccountLayout({
       <AccountHeader />
 
       <div className="flex flex-1 gap-8 px-6 py-8 w-full">
-        <AccountSidebar items={NAVIGATION_ITEMS} currentPath={currentPath} regUserId={regUserId} />
+        <AccountSidebar items={NAVIGATION_ITEMS} regUserId={regUserId} />
 
         <main className="flex-1">{children}</main>
       </div>

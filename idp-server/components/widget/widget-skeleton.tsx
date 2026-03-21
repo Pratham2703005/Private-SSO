@@ -4,7 +4,7 @@ export function WidgetSkeleton() {
   const theme = getThemeClasses();
 
   return (
-    <div className={`w-full max-w-md ${theme.colors.cardBackground} ${theme.styles.cardBorderRadius} ${theme.styles.cardShadow} overflow-hidden`}>
+    <div className={`w-full max-w-md ${theme.colors.cardBackground} ${theme.styles.cardShadow} overflow-hidden`}>
       {/* Active Account Card Skeleton */}
       <div className={`flex flex-col items-center justify-center py-8 px-6 border-b ${theme.colors.dividerBorder}`}>
         {/* Avatar Skeleton */}
