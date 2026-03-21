@@ -30,6 +30,7 @@ function getAllowedWidgetOrigins(): string[] {
   if (isDevelopment) {
     return [
       'http://localhost:3000',  // IDP server
+      'https://pratham-sso.vercel.app',  // IDP server
       'http://localhost:3001',  // Client app (alt)
       'http://localhost:3002',  // Client app (alt)
       'http://localhost:3003',  // Client app (default)

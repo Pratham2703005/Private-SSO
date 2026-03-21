@@ -207,5 +207,6 @@ export function getAllowedClientOrigins(): string[] {
     "http://localhost:3002", // client-b
     "http://localhost:3001", // client-a
     "http://localhost:3000", // idp itself (for iframe)
+    "https://pratham-sso.vercel.app"
   ];
 }

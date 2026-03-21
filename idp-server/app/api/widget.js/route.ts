@@ -7,7 +7,7 @@
 import { AVATAR_CHAR_COLOR_MAP } from '@/lib/avatar-colors';
 
 export async function GET() {
-  const idpOrigin = process.env.NEXT_PUBLIC_IDP_URL || 'http://localhost:3000';
+  const idpOrigin = process.env.NEXT_PUBLIC_IDP_URL!;
   const widgetUrl = `${idpOrigin}/widget/account-switcher`;
   const avatarColorMapJson = JSON.stringify(AVATAR_CHAR_COLOR_MAP);
 
