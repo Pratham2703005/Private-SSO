@@ -76,6 +76,7 @@ export function validateSession(config: ValidateSessionConfig) {
       return NextResponse.json(
         {
           authenticated: true,
+          sessionId,
           user: sessionData.user,
           account: sessionData.account,
           accounts: sessionData.accounts,

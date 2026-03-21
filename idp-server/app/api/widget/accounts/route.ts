@@ -13,7 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getMasterCookie } from '@/lib/utils';
+import { getSessionId } from '@/lib/utils';
 import { getSession, supabase } from '@/lib/db';
 import { getAllAccountsWithIndices, getIndexByAccountId } from '@/lib/account-indexing';
 import { addWidgetCorsHeaders } from '@/lib/cors-utils';
@@ -25,8 +25,8 @@ export async function OPTIONS(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Get IDP session from cookie
-    const sessionId = getMasterCookie(request);
+    // Get IDP session from cookie or Authorization header
+    const sessionId = getSessionId(request);
 
     // FLOW 1: Active session exists - return all session accounts with active index
     if (sessionId) {

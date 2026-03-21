@@ -11,14 +11,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getMasterCookie } from '@/lib/utils';
+import { getSessionId } from '@/lib/utils';
 import { supabase } from '@/lib/db';
 import { getAllAccountsWithIndices } from '@/lib/account-indexing';
 import type { IndexedAccount } from '@/lib/account-indexing';
 
 export async function GET(request: NextRequest) {
   try {
-    const sessionId = getMasterCookie(request);
+    const sessionId = getSessionId(request);
     let activeAccountId: string | null = null;
 
     // Use Map to prevent duplicate accounts

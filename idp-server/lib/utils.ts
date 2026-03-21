@@ -69,6 +69,27 @@ export function getMasterCookie(request: NextRequest): string | null {
   return request.cookies.get("__sso_session")?.value || null;
 }
 
+/**
+ * Extract session ID from request (cookie or Authorization header).
+ * Priority: cookie (same-site) > Bearer token (cross-site iframe)
+ *
+ * Used by widget API endpoints to support cross-site iframe context
+ * where third-party cookies are blocked by the browser.
+ */
+export function getSessionId(request: NextRequest): string | null {
+  // 1. Try cookie first (works for same-site / first-party)
+  const cookieSession = getMasterCookie(request);
+  if (cookieSession) return cookieSession;
+
+  // 2. Try Authorization Bearer header (for cross-site iframe postMessage flow)
+  const authHeader = request.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    return authHeader.slice(7);
+  }
+
+  return null;
+}
+
 export function  hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }

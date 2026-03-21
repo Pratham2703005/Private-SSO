@@ -61,6 +61,7 @@ export interface HandleLogoutConfig {
 
 export interface ValidateSessionResponse {
   authenticated: boolean;
+  sessionId?: string;
   user?: User;
   account?: Account;
   accounts?: Account[];

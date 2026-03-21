@@ -23,23 +23,33 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
   const theme = getThemeClasses();
   const parentOriginRef = useRef<string | null>(null);
   const clientIdRef = useRef<string | null>(null);
-  
+  const sessionIdRef = useRef<string | null>(null);
+
   const [state, setState] = useState<WidgetClientState>({
     accounts: initialAccounts,
     error: initialError,
     switching: false,
   });
-  
+
+  // Helper: build auth headers for cross-site Bearer token transport
+  const getAuthHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = {};
+    if (sessionIdRef.current) {
+      headers['Authorization'] = `Bearer ${sessionIdRef.current}`;
+    }
+    return headers;
+  };
+
   // Get parentOrigin and clientId from URL params on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const origin = params.get('parentOrigin');
       const clientId = params.get('client_id') || params.get('clientId');
-      
+
       parentOriginRef.current = origin;
       clientIdRef.current = clientId;
-      
+
       // Notify parent that widget is ready
       if (origin && window.parent && window.parent !== window) {
         window.parent.postMessage({ type: 'iframeReady' }, origin);
@@ -53,6 +63,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
       const response = await fetch('/api/widget/account-switcher', {
         method: 'GET',
         credentials: 'include',
+        headers: getAuthHeaders(),
       });
       if (!response.ok) return;
       const data = await response.json();
@@ -78,7 +89,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
     try {
       const response = await fetch('/api/widget/logout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ mode: 'current' }),
         credentials: 'include',
       });
@@ -107,7 +118,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
     try {
       const response = await fetch('/api/widget/logout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ mode: 'global' }),
         credentials: 'include',
       });
@@ -146,10 +157,31 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
     notifyParent('startAuth', { prompt: 'signup' });
   };
 
-  // Listen for session updates from parent app
+  // Listen for session updates and cross-site session transport from parent
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
+      // Validate origin against expected parent
+      if (parentOriginRef.current && event.origin !== parentOriginRef.current) {
+        return;
+      }
+
       if (event.data?.type === 'sessionUpdate') {
+        await refetchAccounts();
+      }
+
+      // Cross-site session transport: receive sessionId from parent via postMessage
+      if (event.data?.type === 'SSO_SESSION' || event.data?.type === 'SSO_SESSION_UPDATE') {
+        const { sessionId, timestamp } = event.data;
+        if (!sessionId) return;
+
+        // Replay protection: reject messages older than 30 seconds
+        if (timestamp && (Date.now() - timestamp > 30000)) {
+          console.warn('[WidgetClient] Rejected stale SSO_SESSION message (>30s old)');
+          return;
+        }
+
+        console.log('[WidgetClient] Received sessionId from parent via postMessage');
+        sessionIdRef.current = sessionId;
         await refetchAccounts();
       }
     };
@@ -192,11 +224,9 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
       setState(prev => ({ ...prev, switching: true }));
       notifyParent('ACCOUNT_SWITCHING');
       
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      
+      const headers: Record<string, string> = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+
       // Send x-client-id if available (for per-domain preference saving)
-      // The widget runs on IDP domain, so origin=IDP. But clientId is for a client domain.
-      // That's OK - the switch-account endpoint trusts the widget since it's served from IDP.
       if (clientIdRef.current) {
         headers['x-client-id'] = clientIdRef.current;
       }

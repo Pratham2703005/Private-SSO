@@ -31,10 +31,14 @@ export async function GET(request: Request) {
   let isPopoverOpen = false;
   let button = null;
   let buttonContainer = null;
-  
+
   // Integrated vs Floating mode detection (once at init)
   let isIntegratedMode = false;
   let mountPoint = null;
+
+  // Cross-site session transport: cached sessionId from /api/me
+  let cachedSessionId = null;
+  let iframeIsReady = false;
 
   // Cached account state from iframe (source of truth)
   let currentAccountState = {
@@ -260,7 +264,7 @@ export async function GET(request: Request) {
         // can race on CSRF token rotation, causing one to fail.
         // Let page.tsx's call complete first, then refresh the button.
         setTimeout(function() {
-          fetch('/api/me', { 
+          fetch('/api/me', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -279,6 +283,16 @@ export async function GET(request: Request) {
                   },
                   dataLoaded: true
                 };
+                // Re-send sessionId to iframe (session may have changed)
+                if (data.sessionId) {
+                  cachedSessionId = data.sessionId;
+                  if (iframe && iframe.contentWindow) {
+                    iframe.contentWindow.postMessage(
+                      { type: 'SSO_SESSION_UPDATE', sessionId: data.sessionId, timestamp: Date.now() },
+                      IDP_ORIGIN
+                    );
+                  }
+                }
               } else {
                 // Preserve remembered-account state on transient /api/me misses.
                 // This prevents false sign-in redirects right after a successful switch.
@@ -320,6 +334,11 @@ export async function GET(request: Request) {
     // Handle: iframeReady (iframe has loaded and rendered content)
     if (event.data.type === 'iframeReady') {
       console.log('[AccountSwitcher] Iframe ready');
+      iframeIsReady = true;
+      // If we already have a sessionId (from earlier /api/me), send it now
+      if (cachedSessionId) {
+        sendSessionToIframe(cachedSessionId);
+      }
       return;
     }
 
@@ -517,6 +536,80 @@ export async function GET(request: Request) {
       })
       .catch(function(err) {
         console.error('[AccountSwitcher] Silent login failed:', err);
+      });
+  }
+
+  // Send sessionId to iframe via postMessage (cross-site session transport)
+  function sendSessionToIframe(sessionId) {
+    if (!sessionId || !iframe || !iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(
+      { type: 'SSO_SESSION', sessionId: sessionId, timestamp: Date.now() },
+      IDP_ORIGIN
+    );
+    console.log('[AccountSwitcher] Sent sessionId to iframe');
+  }
+
+  // Fetch session from client's /api/me and send to iframe
+  // Called immediately on client domains (not waiting for fallback timeout)
+  function fetchAndSendSession() {
+    fetch('/api/me', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.authenticated && data.sessionId) {
+          cachedSessionId = data.sessionId;
+          sendSessionToIframe(cachedSessionId);
+
+          // Also update button state
+          if (!currentAccountState.dataLoaded) {
+            currentAccountState = {
+              hasActiveSession: true,
+              hasRememberedAccounts: true,
+              activeAccountPreview: {
+                name: data.user?.name || data.account?.name || '?',
+                email: data.user?.email || data.account?.email || '',
+                avatarUrl: data.user?.profile_image_url || null
+              },
+              dataLoaded: true
+            };
+            updateButtonAppearance();
+          }
+        } else if (data.authenticated && data.user) {
+          // Authenticated but no sessionId in response (old SDK version)
+          if (!currentAccountState.dataLoaded) {
+            currentAccountState = {
+              hasActiveSession: true,
+              hasRememberedAccounts: true,
+              activeAccountPreview: {
+                name: data.user.name || '?',
+                email: data.user.email || '',
+                avatarUrl: data.user.profile_image_url || null
+              },
+              dataLoaded: true
+            };
+            updateButtonAppearance();
+          }
+        } else {
+          // Not authenticated
+          if (!currentAccountState.dataLoaded) {
+            return resolveRememberedAccountsFallback();
+          }
+        }
+      })
+      .catch(function(err) {
+        console.log('[AccountSwitcher] fetchAndSendSession failed:', err);
+        if (!currentAccountState.dataLoaded) {
+          resolveRememberedAccountsFallback().catch(function() {
+            if (!currentAccountState.dataLoaded) {
+              currentAccountState = { hasActiveSession: false, hasRememberedAccounts: false, activeAccountPreview: null, dataLoaded: true };
+              updateButtonAppearance();
+            }
+          });
+        }
       });
   }
 
@@ -798,62 +891,28 @@ export async function GET(request: Request) {
       window.addEventListener('resize', repositionPopover);
     }
     
-    // Fallback: resolve skeleton if iframe doesn't report state in time.
-    // IDP: iframe has first-party cookies and WILL report — use longer timeout (just a safety net).
-    // Client: third-party cookies may be blocked — check /api/me quickly.
+    // Session resolution strategy:
+    // IDP domain: iframe has first-party cookies — wait for iframe to report state.
+    // Client domain: third-party cookies blocked — immediately fetch /api/me to get
+    //   sessionId and send it to iframe via postMessage.
     var isOnIdp = window.location.origin === IDP_ORIGIN;
-    var fallbackDelay = isOnIdp ? 3000 : 500;
+
+    if (!isOnIdp) {
+      // Client domain: fetch session immediately and send to iframe
+      console.log('[AccountSwitcher] Client domain — fetching session via /api/me');
+      fetchAndSendSession();
+    }
+
+    // Fallback timeout: resolve skeleton if nothing reported in time
+    var fallbackDelay = isOnIdp ? 3000 : 2000;
     setTimeout(function() {
-      if (currentAccountState.dataLoaded) return; // iframe already reported, no need
+      if (currentAccountState.dataLoaded) return;
       if (isOnIdp) {
-        // On IDP: iframe should have first-party cookies. If no state arrived,
-        // user is signed out (SignInButton path doesn't send accountStateChanged).
         console.log('[AccountSwitcher] Iframe did not report state — defaulting to sign-in');
         currentAccountState = { hasActiveSession: false, hasRememberedAccounts: false, activeAccountPreview: null, dataLoaded: true };
         updateButtonAppearance();
-        return;
       }
-      console.log('[AccountSwitcher] Iframe did not report state — checking client /api/me fallback');
-      fetch('/api/me', { 
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (currentAccountState.dataLoaded) return; // arrived in the meantime
-          if (data.authenticated && data.user) {
-            currentAccountState = {
-              hasActiveSession: true,
-              hasRememberedAccounts: true,
-              activeAccountPreview: {
-                name: data.user.name || data.account?.name || '?',
-                email: data.user.email || data.account?.email || '',
-                avatarUrl: data.user.profile_image_url || null
-              },
-              dataLoaded: true
-            };
-            console.log('[AccountSwitcher] Fallback: user is authenticated, showing avatar');
-            updateButtonAppearance();
-          } else {
-            console.log('[AccountSwitcher] Fallback: user not authenticated, checking remembered accounts');
-            return resolveRememberedAccountsFallback();
-          }
-        })
-        .catch(function(err) {
-          console.log('[AccountSwitcher] Fallback /api/me failed:', err);
-          // Try remembered accounts before resolving to sign-in
-          if (!currentAccountState.dataLoaded) {
-            resolveRememberedAccountsFallback().catch(function(accountsErr) {
-              console.log('[AccountSwitcher] Remembered accounts fallback failed:', accountsErr);
-              if (!currentAccountState.dataLoaded) {
-                currentAccountState = { hasActiveSession: false, hasRememberedAccounts: false, activeAccountPreview: null, dataLoaded: true };
-                updateButtonAppearance();
-              }
-            });
-          }
-        });
+      // Client fallback already handled by fetchAndSendSession()
     }, fallbackDelay);
     
     console.log('[AccountSwitcher] Widget loaded successfully');

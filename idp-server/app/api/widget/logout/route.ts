@@ -28,7 +28,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getMasterCookie, clearMasterCookie } from '@/lib/utils';
+import { getSessionId, clearMasterCookie } from '@/lib/utils';
 import { getSession, revokeAllUserTokens, revokeSession, markLogonRevoked, revokeAccountTokensPrecise, switchActiveAccount, getActiveSessionLogons, supabase } from '@/lib/db';
 import { WIDGET_ALLOWED_CLIENTS } from '@/config/widget-clients';
 
@@ -56,8 +56,8 @@ export const CLIENT_LOGOUT_ENDPOINTS: Record<string, string> =
 
 export async function POST(request: NextRequest) {
   try {
-    // Get IDP session from cookie
-    const sessionId = getMasterCookie(request);
+    // Get IDP session from cookie or Authorization header
+    const sessionId = getSessionId(request);
 
     if (!sessionId) {
       console.log('[Widget] /logout: No IDP session found');

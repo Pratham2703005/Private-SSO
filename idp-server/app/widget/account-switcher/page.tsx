@@ -25,8 +25,17 @@ import { WidgetSkeleton } from '@/components/widget/widget-skeleton';
 import { AccountDataFetcher } from '@/components/widget/account-data-fetcher';
 import { getThemeClasses } from '@/lib/theme-config';
 
-export default async function AccountSwitcherPage() {
+interface PageProps {
+  searchParams: Promise<{ parentOrigin?: string; client_id?: string }>;
+}
+
+export default async function AccountSwitcherPage({ searchParams }: PageProps) {
+  const params = await searchParams;
   const theme = getThemeClasses();
+
+  // Detect cross-site iframe context: parentOrigin differs from IDP origin
+  const idpOrigin = process.env.NEXT_PUBLIC_IDP_URL || '';
+  const isEmbeddedCrossSite = !!params.parentOrigin && params.parentOrigin !== idpOrigin;
 
   return (
     <>
@@ -34,7 +43,15 @@ export default async function AccountSwitcherPage() {
       <Suspense fallback={<WidgetSkeleton />}>
         <AccountDataFetcher>
           {({ accounts, isSignedOut }) => {
-            // If no accounts found, show sign-in prompt
+            // Cross-site iframe: always render WidgetClient so postMessage listener
+            // is mounted and can receive sessionId from parent page
+            if (isSignedOut && isEmbeddedCrossSite) {
+              return (
+                <WidgetClient initialAccounts={[]} initialIsSignedOut={true} />
+              );
+            }
+
+            // Same-site with no accounts: show sign-in prompt
             if (isSignedOut) {
               return (
                 <div className={`w-full ${theme.colors.cardBackground} overflow-hidden`}>

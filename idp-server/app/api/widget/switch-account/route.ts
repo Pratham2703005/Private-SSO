@@ -21,7 +21,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getMasterCookie } from '@/lib/utils';
+import { getSessionId } from '@/lib/utils';
 import { getSession, switchActiveAccount, getClient, setDomainPreference } from '@/lib/db';
 import { getAccountByIndex, getActiveAccountCount } from '@/lib/account-indexing';
 
@@ -39,8 +39,8 @@ interface SwitchAccountResponse {
 
 export async function POST(request: NextRequest) {
   try {
-    // Get IDP session from cookie
-    const sessionId = getMasterCookie(request);
+    // Get IDP session from cookie or Authorization header
+    const sessionId = getSessionId(request);
     const clientId = request.headers.get("x-client-id");
 
     if (!sessionId) {
