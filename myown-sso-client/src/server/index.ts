@@ -1,5 +1,3 @@
-'use server';
-
 /**
  * Server-side exports
  * Route handler utilities for Next.js API routes

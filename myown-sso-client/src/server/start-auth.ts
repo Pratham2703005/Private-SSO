@@ -1,5 +1,3 @@
-'use server';
-
 /**
  * Start OAuth2 flow with PKCE
  * 

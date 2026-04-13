@@ -1,5 +1,3 @@
-'use server';
-
 /**
  * Handle OAuth2 callback
  * 

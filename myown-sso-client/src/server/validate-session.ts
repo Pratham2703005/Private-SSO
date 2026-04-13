@@ -1,5 +1,3 @@
-'use server';
-
 /**
  * Validate session and return user data
  * 

@@ -1,5 +1,3 @@
-'use server';
-
 /**
  * Handle logout - clear session cookie and revoke tokens on IDP
  *
