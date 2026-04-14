@@ -1,37 +1,23 @@
 import { NextResponse } from "next/server";
+import { getAllowedWidgetOrigins } from "@/lib/widget-origins";
 
-const ALLOWED_WIDGET_ORIGINS = [
-  "https://client-a.com",
-  "https://client-b.com",
-  "http://localhost:3001",
-  "http://localhost:3002",
-  "http://localhost:3003",
-  "http://localhost:3004",
-];
-
-export function proxy(req: Request) {
+export async function proxy(req: Request) {
   const url = new URL(req.url);
   const pathname = url.pathname;
 
   const res = NextResponse.next();
 
-  if (pathname === "/widget/account-switcher") {
-    const allowed = ALLOWED_WIDGET_ORIGINS.join(" ");
-
+  if (pathname.startsWith("/widget/")) {
+    const origins = await getAllowedWidgetOrigins();
+    const allowed = origins.join(" ");
     res.headers.set(
       "Content-Security-Policy",
-      `frame-ancestors 'self' ${allowed}`
+      `frame-ancestors 'self'${allowed ? " " + allowed : ""}`
     );
 
-    res.headers.set("X-Content-Type-Options", "nosniff");
-  } else if (pathname.startsWith("/widget/")) {
-    // other widget pages (if any)
-    const allowed = ALLOWED_WIDGET_ORIGINS.join(" ");
-
-    res.headers.set(
-      "Content-Security-Policy",
-      `frame-ancestors 'self' ${allowed}`
-    );
+    if (pathname === "/widget/account-switcher") {
+      res.headers.set("X-Content-Type-Options", "nosniff");
+    }
   } else {
     res.headers.set("Content-Security-Policy", "frame-ancestors 'none'");
   }
