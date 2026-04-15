@@ -81,6 +81,12 @@ export interface TokenResponse {
   session_state: "active" | "inactive";
   token_type: "Bearer";
   expires_in: number; // seconds (3600 = 1 hour, 86400 = 1 day)
+  session_bootstrap?: {
+    user: { id: string; email: string; name: string };
+    account: { id: string; email: string; name: string };
+    accounts: Array<{ id: string; email: string; name: string; isPrimary?: boolean }>;
+    activeAccountId: string;
+  };
 }
 
 /**

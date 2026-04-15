@@ -167,6 +167,28 @@ export function handleCallback(config: HandleCallbackConfig) {
         maxAge: DEFAULT_CONFIG.timeouts.session, // seconds
       });
 
+      // Skip-the-first-/api/me bootstrap cookie
+      // Short-lived (60s), JS-readable so the SSOProvider can hydrate initial session
+      // state on mount without a roundtrip. No secrets — just the same user/account data
+      // that /api/me returns. SameSite=Lax is fine: cookie is set during top-level
+      // callback navigation and consumed on the same origin's next page load.
+      if (tokenData.session_bootstrap) {
+        try {
+          response.cookies.set({
+            name: DEFAULT_CONFIG.cookies.sessionBootstrap,
+            value: encodeURIComponent(JSON.stringify(tokenData.session_bootstrap)),
+            httpOnly: false,
+            sameSite: 'lax',
+            secure: getSecureFlag(),
+            path: '/',
+            maxAge: 60,
+          });
+        } catch (err) {
+          // Non-fatal: widget just falls back to /api/me
+          console.warn('[handleCallback] Failed to set bootstrap cookie:', err);
+        }
+      }
+
       // Clear PKCE verifier cookie
       response.cookies.delete(DEFAULT_CONFIG.cookies.pkceVerifier);
 

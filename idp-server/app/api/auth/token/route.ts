@@ -304,6 +304,17 @@ async function handleAuthorizationCodeGrant(body: {
       session_state: "active", // Multi-account/silent login support
       token_type: "Bearer",
       expires_in: 86400, // 1 day in seconds
+      session_bootstrap: {
+        user: { id: user.id, email: primaryAccount.email, name: primaryAccount.name },
+        account: { id: primaryAccount.id, email: primaryAccount.email, name: primaryAccount.name },
+        accounts: accounts.map((acc) => ({
+          id: acc.id,
+          email: acc.email,
+          name: acc.name,
+          isPrimary: acc.is_primary === true,
+        })),
+        activeAccountId: primaryAccount.id,
+      },
     };
     console.log('[Token] SessionId from authCode:', authCode.session_id);
     return NextResponse.json(tokenResponse, { status: 200 });

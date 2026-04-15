@@ -11,6 +11,9 @@ export const DEFAULT_CONFIG = {
     pkceVerifier: 'pkce_verifier',
     csrf: '__csrf',
     ssoSession: '__sso_session',
+    // Short-lived, client-readable cookie that carries initial session snapshot
+    // from the server callback into the SPA so it can skip the first /api/me call.
+    sessionBootstrap: '__sso_bootstrap',
   },
 
   // Timeouts (in seconds)

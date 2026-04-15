@@ -97,9 +97,25 @@ export function SSOProvider({
 
   /**
    * Initial mount - fetch session once
+   * If we hydrated from the bootstrap cookie, skip the first /api/me roundtrip —
+   * the cookie was just minted by the server-side callback handler, so it is
+   * as fresh as anything /api/me would return. Consume the cookie so a future
+   * reload doesn't use stale data, and notify listeners with the bootstrap session.
    */
   useEffect(() => {
     let mounted = true;
+
+    const bootstrapSession = readBootstrapSession();
+    if (bootstrapSession) {
+      clearBootstrapCookie();
+      setSession(bootstrapSession);
+      setLoading(false);
+      onSessionUpdate?.(bootstrapSession);
+      emitterRef.current.emit('sessionRefresh', bootstrapSession);
+      return () => {
+        mounted = false;
+      };
+    }
 
     performSessionFetch()
       .then(newSession => {
@@ -451,4 +467,35 @@ function getCookie(name: string): string | null {
     }
   }
   return null;
+}
+
+/**
+ * Read and parse the one-shot bootstrap cookie dropped by handleCallback.
+ * Returns null when absent or unparseable — caller falls back to /api/me.
+ */
+function readBootstrapSession(): SessionData | null {
+  if (typeof document === 'undefined') return null;
+  const raw = getCookie(DEFAULT_CONFIG.cookies.sessionBootstrap);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed?.user || !parsed?.account) return null;
+    return {
+      user: parsed.user,
+      account: parsed.account,
+      accounts: parsed.accounts || [],
+      activeAccountId: parsed.activeAccountId,
+      issuedAt: Date.now(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Delete the bootstrap cookie so a future reload doesn't rehydrate stale data.
+ */
+function clearBootstrapCookie(): void {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${DEFAULT_CONFIG.cookies.sessionBootstrap}=; path=/; max-age=0`;
 }

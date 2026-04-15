@@ -107,7 +107,7 @@ export async function GET(request: Request) {
     
     const popoverCSS = isIntegratedMode
       ? "position: fixed; width: 420px; max-width: 95vw; z-index: 50000;"
-      : "position: fixed; top: 78px; right: 20px; width: 420px; z-index: 10000;";
+      : "position: fixed; top: 78px; right: 20px; width: 420px; max-width: calc(100vw - 40px); z-index: 10000;";
     
     style.textContent = \`
       #__account_switcher_button_container,
@@ -164,6 +164,23 @@ export async function GET(request: Request) {
       @keyframes __asSkeleton {
         0%, 100% { opacity: 0.4; }
         50% { opacity: 1; }
+      }
+
+      /* Mobile: switch popover to bottom sheet for narrow viewports */
+      @media (max-width: 480px) {
+        #__account_switcher_popover {
+          top: auto !important;
+          right: 0 !important;
+          left: 0 !important;
+          bottom: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          border-radius: 16px 16px 0 0 !important;
+          box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15) !important;
+        }
+        #__account_switcher_iframe {
+          max-height: 85vh;
+        }
       }
     \`;
     document.head.appendChild(style);

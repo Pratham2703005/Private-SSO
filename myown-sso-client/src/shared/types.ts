@@ -73,6 +73,13 @@ export interface AuthStartResponse {
   url: string;
 }
 
+export interface SessionBootstrap {
+  user: User;
+  account: Account;
+  accounts: Account[];
+  activeAccountId: string;
+}
+
 export interface TokenResponse {
   session_id: string;
   session_state?: "active" | "inactive";
@@ -80,6 +87,7 @@ export interface TokenResponse {
   refresh_token?: string;
   token_type?: string;
   expires_in?: number;
+  session_bootstrap?: SessionBootstrap;
 }
 
 export type EventType = 

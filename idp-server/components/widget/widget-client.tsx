@@ -328,7 +328,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
   if (!activeAccount) {
     return (
       <div className={`w-full max-w-md ${theme.colors.cardBackground} ${theme.styles.cardShadow} overflow-hidden`}>
-        <div className="px-6 py-8 text-center flex flex-col items-center gap-4">
+        <div className="px-4 py-6 sm:px-6 sm:py-8 text-center flex flex-col items-center gap-4">
           <div className="text-4xl">🔐</div>
           <p className={`text-sm ${theme.colors.bodyText}`}>No accounts found</p>
           <button
@@ -356,7 +356,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
       )}
 
       {/* Active Account Card */}
-      <div className={`flex flex-col items-center justify-center py-8 px-6 border-b ${theme.colors.dividerBorder}`}>
+      <div className={`flex flex-col items-center justify-center py-6 px-4 sm:py-8 sm:px-6 border-b ${theme.colors.dividerBorder}`}>
         {/* Avatar */}
         <div className={`mb-4 ${activeAccount.accountState === 'needs_reauth' ? 'opacity-70' : ''}`}>
           <AvatarImage
@@ -380,7 +380,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
         </h2>
 
         {/* Email */}
-        <p className={`text-sm ${theme.colors.mutedText} mb-6`}>
+        <p className={`text-sm ${theme.colors.mutedText} mb-6 max-w-full truncate px-2`}>
           {activeAccount.email}
         </p>
 
@@ -411,7 +411,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
       {/* Other Accounts */}
       {otherAccounts.length > 0 && (
         <div className={`border-b ${theme.colors.dividerBorder}`}>
-          <div className={`px-6 py-3 flex items-center justify-between ${theme.colors.collapsibleHover} bg-gray-50`}>
+          <div className={`px-4 sm:px-6 py-3 flex items-center justify-between ${theme.colors.collapsibleHover} bg-gray-50`}>
             <span className={`text-sm ${theme.colors.bodyText}`}>
               More accounts ({otherAccounts.length})
             </span>
@@ -427,7 +427,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
                     handleReauthenticateAccountClick(account);
                   }
                 }}
-                className={`w-full px-6 py-3.5 flex items-center gap-3 ${theme.colors.hoverBackground} transition-colors duration-150 text-left border-t ${theme.colors.dividerBorder}`}
+                className={`w-full px-4 sm:px-6 py-3.5 flex items-center gap-3 ${theme.colors.hoverBackground} transition-colors duration-150 text-left border-t ${theme.colors.dividerBorder}`}
                 type="button"
               >
                 {/* Avatar */}
@@ -476,7 +476,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
         {/* Add another account */}
         <button
           onClick={handleAddAccount}
-          className={`w-full px-10 py-4.5 flex items-center gap-3 ${theme.colors.hoverBackground} transition-colors duration-150 text-left`}
+          className={`w-full px-6 sm:px-10 py-4 sm:py-4.5 flex items-center gap-3 ${theme.colors.hoverBackground} transition-colors duration-150 text-left`}
           type="button"
         >
           <svg
@@ -497,7 +497,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
         {activeAccount.accountState === 'active' && (
           <button
             onClick={handleLogoutCurrent}
-            className={`w-full px-10 py-4.5 flex items-center gap-3 ${theme.colors.signoutHover} transition-colors duration-150 text-left`}
+            className={`w-full px-6 sm:px-10 py-4 sm:py-4.5 flex items-center gap-3 ${theme.colors.signoutHover} transition-colors duration-150 text-left`}
             type="button"
           >
             <svg
@@ -519,7 +519,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
         {hasAnyActiveSession && signedInAccountsCount > 1 && (
           <button
             onClick={handleLogoutGlobal}
-            className={`w-full px-10 py-4.5 flex items-center gap-3 ${theme.colors.signoutHover} transition-colors duration-150 text-left`}
+            className={`w-full px-6 sm:px-10 py-4 sm:py-4.5 flex items-center gap-3 ${theme.colors.signoutHover} transition-colors duration-150 text-left`}
             type="button"
           >
             <svg

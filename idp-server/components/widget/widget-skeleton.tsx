@@ -22,7 +22,7 @@ export function WidgetSkeleton() {
 
       {/* Other Accounts Section Skeleton */}
       <div className={`border-b ${theme.colors.dividerBorder}`}>
-        <div className={`px-6 py-3 flex items-center justify-between ${theme.colors.collapsibleHover} bg-gray-50`}>
+        <div className={`px-4 sm:px-6 py-3 flex items-center justify-between ${theme.colors.collapsibleHover} bg-gray-50`}>
           <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
         </div>
 
@@ -30,7 +30,7 @@ export function WidgetSkeleton() {
         {[1, 2].map((i) => (
           <div
             key={i}
-            className={`px-6 py-3.5 flex items-center gap-3 border-t ${theme.colors.dividerBorder}`}
+            className={`px-4 sm:px-6 py-3.5 flex items-center gap-3 border-t ${theme.colors.dividerBorder}`}
           >
             <div className="w-10 h-10 bg-gray-200 rounded-full shrink-0 animate-pulse" />
             <div className="flex-1 min-w-0 space-y-1.5">
@@ -42,7 +42,7 @@ export function WidgetSkeleton() {
       </div>
 
       {/* Actions Section Skeleton */}
-      <div className="px-6 py-4 space-y-1">
+      <div className="px-4 sm:px-6 py-4 space-y-1">
         <div className="h-10 bg-gray-200 rounded-lg animate-pulse" />
         <div className="h-10 bg-gray-200 rounded-lg animate-pulse" />
       </div>
