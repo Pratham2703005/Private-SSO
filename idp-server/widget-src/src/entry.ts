@@ -33,6 +33,7 @@ import type {
 
   let iframeModal: HTMLDivElement | null = null;
   let iframe: HTMLIFrameElement | null = null;
+  let backdrop: HTMLDivElement | null = null;
   let isPopoverOpen = false;
   let button: HTMLButtonElement | null = null;
   let buttonContainer: HTMLDivElement | null = null;
@@ -61,6 +62,26 @@ import type {
 
   function currentMode(): WidgetMode {
     return isIntegratedMode ? 'integrated' : 'floating';
+  }
+
+  // Scroll-lock body while the mobile modal is open.
+  // Desktop keeps its anchored-dropdown behaviour — repositionPopover follows
+  // the button when the page scrolls — so locking only applies under the
+  // same ≤480px breakpoint the CSS uses for the centered modal.
+  let previousBodyOverflow: string | null = null;
+  const MOBILE_QUERY = '(max-width: 480px)';
+
+  function lockBodyScroll() {
+    if (previousBodyOverflow !== null) return; // already locked
+    if (!window.matchMedia(MOBILE_QUERY).matches) return;
+    previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function unlockBodyScroll() {
+    if (previousBodyOverflow === null) return;
+    document.body.style.overflow = previousBodyOverflow;
+    previousBodyOverflow = null;
   }
 
   function getParentOrigin(): string | null {
@@ -289,6 +310,11 @@ import type {
     if (isPopoverOpen) {
       iframeModal.classList.remove('hidden');
       iframeModal.classList.add('visible');
+      if (backdrop) {
+        backdrop.classList.remove('hidden');
+        backdrop.classList.add('visible');
+      }
+      lockBodyScroll();
 
       if (isIntegratedMode && button) {
         const buttonRect = button.getBoundingClientRect();
@@ -304,6 +330,11 @@ import type {
     } else {
       iframeModal.classList.add('hidden');
       iframeModal.classList.remove('visible');
+      if (backdrop) {
+        backdrop.classList.add('hidden');
+        backdrop.classList.remove('visible');
+      }
+      unlockBodyScroll();
       console.log('[AccountSwitcher] Popover closed');
     }
   }
@@ -314,6 +345,11 @@ import type {
       iframeModal.classList.add('hidden');
       iframeModal.classList.remove('visible');
     }
+    if (backdrop) {
+      backdrop.classList.add('hidden');
+      backdrop.classList.remove('visible');
+    }
+    unlockBodyScroll();
   }
 
   // Pre-create and load iframe hidden (speeds up opening on first click)
@@ -323,6 +359,14 @@ import type {
     }
 
     console.log('[AccountSwitcher] Pre-creating iframe for faster loading...');
+
+    // Backdrop: sibling of the popover. On mobile it tints the page and catches
+    // outside clicks; on desktop it stays transparent with pointer-events: none.
+    const backdropEl = document.createElement('div');
+    backdropEl.id = '__account_switcher_backdrop';
+    backdropEl.className = 'hidden';
+    document.body.appendChild(backdropEl);
+    backdrop = backdropEl;
 
     const popover = document.createElement('div');
     popover.id = '__account_switcher_popover';

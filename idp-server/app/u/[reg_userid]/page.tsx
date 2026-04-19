@@ -98,7 +98,7 @@ export default async function HomePage({ params }: PageProps) {
   if (!user || !account) {
     // Not logged in - show landing page using components
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-dvh bg-white">
         <LandingHeader brandName="MyOwn" />
         <LandingHero
           title="One Login for All Your Apps"

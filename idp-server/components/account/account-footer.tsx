@@ -11,8 +11,8 @@ interface AccountFooterProps {
 
 export function AccountFooter({ links }: AccountFooterProps) {
   return (
-    <footer className="border-t px-6 py-6 mt-auto">
-      <div className="max-w-7xl mx-auto flex justify-center gap-6 text-sm text-gray-600">
+    <footer className="border-t px-4 md:px-6 py-6 mt-auto">
+      <div className="max-w-7xl mx-auto flex flex-wrap justify-center gap-x-4 gap-y-2 sm:gap-6 text-sm text-gray-600">
         {links.map((link) => (
           <Link
             key={link.href}

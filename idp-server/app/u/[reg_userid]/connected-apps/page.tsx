@@ -87,7 +87,7 @@ export default async function ConnectedAppsPage({ params }: PageProps) {
   if (!user || !account) {
     // Not logged in - show landing page
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-dvh bg-white">
         <LandingHeader brandName="MyOwn" />
         <LandingHero
           title="One Login for All Your Apps"

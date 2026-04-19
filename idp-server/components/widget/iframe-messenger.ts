@@ -32,53 +32,45 @@ export default function IframeMessenger() {
     // Also notify after a short delay to ensure DOM is fully rendered
     const timer = setTimeout(notifyParent, 100);
 
-    // Set up ResizeObserver to monitor content height
+    // Set up ResizeObserver to monitor content height.
+    // Note: we measure `document.body.getBoundingClientRect().height` — not
+    // `document.documentElement.scrollHeight` — because the parent page sets
+    // the iframe's height inline, which makes <html>'s clientHeight track the
+    // iframe viewport. Since scrollHeight returns max(clientHeight, content),
+    // it gets stuck at the old (larger) iframe height when the body shrinks,
+    // so the iframe never shrinks back. The body box has no such floor.
     const setupHeightMonitoring = () => {
       const bodyElement = document.body;
-      
+
       if (!bodyElement) {
         console.warn('[IframeMessenger] Body element not found');
         return;
       }
 
-      const resizeObserver = new ResizeObserver(() => {
-        // Get the actual scrollHeight of document
-        const height = document.documentElement.scrollHeight;
-        
+      const measureHeight = () =>
+        Math.ceil(bodyElement.getBoundingClientRect().height);
+
+      const sendHeight = () => {
+        const height = measureHeight();
         if (window.parent && window.parent !== window && height > 0) {
           try {
             window.parent.postMessage(
-              { 
-                type: 'contentHeightChanged', 
-                height: height
-              },
-              '*'
+              { type: 'contentHeightChanged', height },
+              '*',
             );
           } catch (error) {
             console.error('[IframeMessenger] Failed to send height message:', error);
           }
         }
-      });
+      };
 
+      const resizeObserver = new ResizeObserver(sendHeight);
       resizeObserver.observe(bodyElement);
-      
-      // Also trigger initial height send
+
+      // Also trigger an initial height send after first paint.
       setTimeout(() => {
-        const height = document.documentElement.scrollHeight;
-        if (window.parent && window.parent !== window && height > 0) {
-          try {
-            window.parent.postMessage(
-              { 
-                type: 'contentHeightChanged', 
-                height: height
-              },
-              '*'
-            );
-            console.log('[IframeMessenger] Initial height sent:', height);
-          } catch (error) {
-            console.error('[IframeMessenger] Failed to send initial height:', error);
-          }
-        }
+        sendHeight();
+        console.log('[IframeMessenger] Initial height sent:', measureHeight());
       }, 200);
 
       return () => resizeObserver.disconnect();

@@ -170,8 +170,34 @@
     return `
       #__account_switcher_button_container,
       #__account_switcher_popover,
-      #__account_switcher_iframe {
+      #__account_switcher_iframe,
+      #__account_switcher_backdrop {
         box-sizing: border-box;
+      }
+
+      /*
+       * Backdrop: full-viewport overlay that sits behind the popover.
+       * Desktop: transparent and pointer-events: none \u2014 clicks pass through
+       * so the rest of the page stays interactive while the popover is open.
+       * Mobile: tinted + interactive so tapping outside the centered modal
+       * closes it (existing document mousedown handler catches the click).
+       */
+      #__account_switcher_backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: transparent;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 160ms ease, background-color 160ms ease;
+      }
+
+      #__account_switcher_backdrop.hidden {
+        display: none;
+      }
+
+      #__account_switcher_backdrop.visible {
+        opacity: 1;
       }
 
       #__account_switcher_popover {
@@ -185,6 +211,7 @@
         border: none;
         overflow: hidden;
         outline: none;
+        transition: opacity 160ms ease;
       }
 
       #__account_switcher_popover.hidden {
@@ -203,11 +230,12 @@
         display: block;
         width: 100%;
         height: auto;
-        max-height: 80vh;
+        max-height: 80dvh;
         border: none;
         margin: 0;
         padding: 0;
         background: white;
+        transition: height 200ms ease-out;
       }
 
       #__account_switcher_button_container {
@@ -224,20 +252,30 @@
         50% { opacity: 1; }
       }
 
-      /* Mobile: switch popover to bottom sheet for narrow viewports */
+      /*
+       * Mobile (\u2264480px): centered modal with tinted backdrop.
+       * Overrides the desktop anchored-to-button positioning (set inline by JS).
+       */
       @media (max-width: 480px) {
-        #__account_switcher_popover {
-          top: auto !important;
-          right: 0 !important;
-          left: 0 !important;
-          bottom: 0 !important;
-          width: 100% !important;
-          max-width: 100% !important;
-          border-radius: 16px 16px 0 0 !important;
-          box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15) !important;
+        #__account_switcher_backdrop.visible {
+          background: rgba(0, 0, 0, 0.5);
+          pointer-events: auto;
         }
+
+        #__account_switcher_popover {
+          top: 50% !important;
+          left: 50% !important;
+          right: auto !important;
+          bottom: auto !important;
+          transform: translate(-50%, -50%);
+          width: calc(100% - 32px) !important;
+          max-width: 420px !important;
+          border-radius: 16px !important;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
+        }
+
         #__account_switcher_iframe {
-          max-height: 85vh;
+          max-height: 80dvh;
         }
       }
     `;
@@ -267,6 +305,7 @@
     window2.__accountSwitcherLoaded = true;
     let iframeModal = null;
     let iframe = null;
+    let backdrop = null;
     let isPopoverOpen = false;
     let button = null;
     let buttonContainer = null;
@@ -286,6 +325,19 @@
     };
     function currentMode() {
       return isIntegratedMode ? "integrated" : "floating";
+    }
+    let previousBodyOverflow = null;
+    const MOBILE_QUERY = "(max-width: 480px)";
+    function lockBodyScroll() {
+      if (previousBodyOverflow !== null) return;
+      if (!window2.matchMedia(MOBILE_QUERY).matches) return;
+      previousBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    }
+    function unlockBodyScroll() {
+      if (previousBodyOverflow === null) return;
+      document.body.style.overflow = previousBodyOverflow;
+      previousBodyOverflow = null;
     }
     function getParentOrigin() {
       try {
@@ -469,6 +521,11 @@
       if (isPopoverOpen) {
         iframeModal.classList.remove("hidden");
         iframeModal.classList.add("visible");
+        if (backdrop) {
+          backdrop.classList.remove("hidden");
+          backdrop.classList.add("visible");
+        }
+        lockBodyScroll();
         if (isIntegratedMode && button) {
           const buttonRect = button.getBoundingClientRect();
           const popoverTop = buttonRect.bottom + 12;
@@ -481,6 +538,11 @@
       } else {
         iframeModal.classList.add("hidden");
         iframeModal.classList.remove("visible");
+        if (backdrop) {
+          backdrop.classList.add("hidden");
+          backdrop.classList.remove("visible");
+        }
+        unlockBodyScroll();
         console.log("[AccountSwitcher] Popover closed");
       }
     }
@@ -490,12 +552,22 @@
         iframeModal.classList.add("hidden");
         iframeModal.classList.remove("visible");
       }
+      if (backdrop) {
+        backdrop.classList.add("hidden");
+        backdrop.classList.remove("visible");
+      }
+      unlockBodyScroll();
     }
     function preloadIframe() {
       if (iframeModal || iframe) {
         return;
       }
       console.log("[AccountSwitcher] Pre-creating iframe for faster loading...");
+      const backdropEl = document.createElement("div");
+      backdropEl.id = "__account_switcher_backdrop";
+      backdropEl.className = "hidden";
+      document.body.appendChild(backdropEl);
+      backdrop = backdropEl;
       const popover = document.createElement("div");
       popover.id = "__account_switcher_popover";
       popover.className = "hidden";

@@ -22,8 +22,34 @@ export function buildStylesheet(mode: WidgetMode): string {
   return `
       #__account_switcher_button_container,
       #__account_switcher_popover,
-      #__account_switcher_iframe {
+      #__account_switcher_iframe,
+      #__account_switcher_backdrop {
         box-sizing: border-box;
+      }
+
+      /*
+       * Backdrop: full-viewport overlay that sits behind the popover.
+       * Desktop: transparent and pointer-events: none — clicks pass through
+       * so the rest of the page stays interactive while the popover is open.
+       * Mobile: tinted + interactive so tapping outside the centered modal
+       * closes it (existing document mousedown handler catches the click).
+       */
+      #__account_switcher_backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: transparent;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 160ms ease, background-color 160ms ease;
+      }
+
+      #__account_switcher_backdrop.hidden {
+        display: none;
+      }
+
+      #__account_switcher_backdrop.visible {
+        opacity: 1;
       }
 
       #__account_switcher_popover {
@@ -37,6 +63,7 @@ export function buildStylesheet(mode: WidgetMode): string {
         border: none;
         overflow: hidden;
         outline: none;
+        transition: opacity 160ms ease;
       }
 
       #__account_switcher_popover.hidden {
@@ -55,11 +82,12 @@ export function buildStylesheet(mode: WidgetMode): string {
         display: block;
         width: 100%;
         height: auto;
-        max-height: 80vh;
+        max-height: 80dvh;
         border: none;
         margin: 0;
         padding: 0;
         background: white;
+        transition: height 200ms ease-out;
       }
 
       #__account_switcher_button_container {
@@ -76,20 +104,30 @@ export function buildStylesheet(mode: WidgetMode): string {
         50% { opacity: 1; }
       }
 
-      /* Mobile: switch popover to bottom sheet for narrow viewports */
+      /*
+       * Mobile (≤480px): centered modal with tinted backdrop.
+       * Overrides the desktop anchored-to-button positioning (set inline by JS).
+       */
       @media (max-width: 480px) {
-        #__account_switcher_popover {
-          top: auto !important;
-          right: 0 !important;
-          left: 0 !important;
-          bottom: 0 !important;
-          width: 100% !important;
-          max-width: 100% !important;
-          border-radius: 16px 16px 0 0 !important;
-          box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15) !important;
+        #__account_switcher_backdrop.visible {
+          background: rgba(0, 0, 0, 0.5);
+          pointer-events: auto;
         }
+
+        #__account_switcher_popover {
+          top: 50% !important;
+          left: 50% !important;
+          right: auto !important;
+          bottom: auto !important;
+          transform: translate(-50%, -50%);
+          width: calc(100% - 32px) !important;
+          max-width: 420px !important;
+          border-radius: 16px !important;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
+        }
+
         #__account_switcher_iframe {
-          max-height: 85vh;
+          max-height: 80dvh;
         }
       }
     `;

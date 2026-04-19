@@ -15,7 +15,7 @@ export function AuthCard({ children, maxWidth = 'lg' }: AuthCardProps) {
   }[maxWidth];
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center px-4 py-8
+    <div className="min-h-dvh w-full flex flex-col items-center justify-center px-4 py-8
       bg-(--bg) transition-colors duration-300">
       <div className={`w-full ${widthClass} animate-fade-in`}>
         <div className="rounded-3xl border border-(--border)

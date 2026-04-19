@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
+import { Collapsible } from '@base-ui/react/collapsible';
 import { IndexedAccount } from '@/lib/account-indexing';
 import { getThemeClasses } from '@/lib/theme-config';
 import { AvatarImage } from '@/components/ui';
@@ -23,6 +24,7 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
   const theme = getThemeClasses();
   const parentOriginRef = useRef<string | null>(null);
   const clientIdRef = useRef<string | null>(null);
+  const [moreAccountsOpen, setMoreAccountsOpen] = useState(true);
   const sessionIdRef = useRef<string | null>(null);
 
   const [state, setState] = useState<WidgetClientState>({
@@ -408,15 +410,32 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
         )}
       </div>
 
-      {/* Other Accounts */}
+      {/* Other Accounts — collapsible accordion */}
       {otherAccounts.length > 0 && (
-        <div className={`border-b ${theme.colors.dividerBorder}`}>
-          <div className={`px-4 sm:px-6 py-3 flex items-center justify-between ${theme.colors.collapsibleHover} bg-gray-50`}>
+        <Collapsible.Root
+          open={moreAccountsOpen}
+          onOpenChange={setMoreAccountsOpen}
+          className={`border-b ${theme.colors.dividerBorder}`}
+        >
+          <Collapsible.Trigger
+            className={`w-full px-4 sm:px-6 py-3 flex items-center justify-between ${theme.colors.collapsibleHover} bg-gray-50 text-left cursor-pointer`}
+          >
             <span className={`text-sm ${theme.colors.bodyText}`}>
               More accounts ({otherAccounts.length})
             </span>
-          </div>
-          <div>
+            <svg
+              className={`w-4 h-4 shrink-0 text-gray-500 transition-transform duration-200 ease-out ${moreAccountsOpen ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </Collapsible.Trigger>
+          <Collapsible.Panel
+            className="overflow-hidden h-(--collapsible-panel-height) transition-[height] duration-200 ease-out data-starting-style:h-0 data-ending-style:h-0"
+          >
             {otherAccounts.map((account) => (
               <button
                 key={account.id}
@@ -467,8 +486,8 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
                 )}
               </button>
             ))}
-          </div>
-        </div>
+          </Collapsible.Panel>
+        </Collapsible.Root>
       )}
 
       {/* Actions */}

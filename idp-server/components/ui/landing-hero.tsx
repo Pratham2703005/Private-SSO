@@ -13,7 +13,7 @@ export function LandingHero({
   showSignUp = true,
 }: LandingHeroProps) {
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-73px)] px-4">
+    <div className="flex items-center justify-center min-h-[calc(100dvh-73px)] px-4">
       <div className="max-w-2xl w-full text-center">
         <h2 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
           {title}

@@ -11,10 +11,12 @@ export function AccountHeader({
   showHelp = true,
 }: AccountHeaderProps) {
   return (
-    <header className="bg-transparent px-6 py-4 flex items-center justify-between">
-      <h1 className="text-2xl text-gray-900"><span className="font-semibold">Social</span> Account</h1>
+    <header className="bg-transparent px-4 md:px-6 py-4 flex items-center justify-between gap-2">
+      <h1 className="text-xl sm:text-2xl text-gray-900 truncate">
+        <span className="font-semibold">Social</span> Account
+      </h1>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
         {showHelp && (
           <Link
             href="/u/1/help"

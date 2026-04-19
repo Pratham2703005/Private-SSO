@@ -21,26 +21,30 @@ export function AccountSidebar({ items, regUserId = "0" }: AccountSidebarProps) 
   const currentSection = pathSegments[2];
 
   return (
-    <aside className="w-64 flex-shrink-0">
-      <nav className="space-y-1">
+    <aside className="md:w-64 md:shrink-0">
+      <nav
+        className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4
+                   md:flex-col md:gap-0 md:space-y-1 md:overflow-visible md:pb-0 md:mx-0 md:px-0
+                   [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {items.map((item) => {
           // Replace /u/ with /u/[regUserId]/ in navigation links
           const href = item.href.replace(/^\/u\//, `/u/${regUserId}/`);
           // Get segments from the href
           const hrefSegments = href.split('/').filter(Boolean);
-          
+
           // Get the main section from href (typically index 2)
           // e.g., /u/0/personal-info -> personal-info
           const hrefSection = hrefSegments[2];
-          
+
           // Compare main sections
           const isActive = currentSection === hrefSection;
-          
+
           return (
             <Link
               key={item.href}
               href={href}
-              className={`flex items-center gap-4 p-2 pr-4 rounded-full transition-colors w-fit text-gray-700 font-medium hover:bg-gray-300 ${
+              className={`flex shrink-0 items-center gap-4 p-2 pr-4 rounded-full transition-colors whitespace-nowrap md:w-fit text-gray-700 font-medium hover:bg-gray-300 ${
                 isActive
                   ? "bg-white"
                   : " bg-transparent"
