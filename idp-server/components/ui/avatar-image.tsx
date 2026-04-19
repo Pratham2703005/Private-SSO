@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import { getAvatarColorByName } from "@/lib/avatar-colors";
 
 interface AvatarProps {
@@ -29,6 +29,14 @@ export function AvatarImage({
   onImageChange,
 }: AvatarProps) {
   const [preview, setPreview] = useState<string | null>(imageUrl || null);
+  // Reset preview when the parent swaps accounts. Done during render (not in
+  // an effect) so the new render already uses the correct image, avoiding a
+  // cascading re-render. See react.dev "Adjusting state on prop change".
+  const [lastImageUrl, setLastImageUrl] = useState(imageUrl);
+  if (imageUrl !== lastImageUrl) {
+    setLastImageUrl(imageUrl);
+    setPreview(imageUrl || null);
+  }
   const [hovered, setHovered] = useState(false);
   const [cameraHovered, setCameraHovered] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
