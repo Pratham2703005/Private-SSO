@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Collapsible } from '@base-ui/react/collapsible';
 import { IndexedAccount } from '@/lib/account-indexing';
 import { getThemeClasses } from '@/lib/theme-config';
-import { AvatarImage } from '@/components/ui';
+import { AvatarImage, PrathamSSOLoader } from '@/components/ui';
 import { getAvatarColorByName } from '@/lib/avatar-colors';
 
 interface WidgetClientState {
@@ -349,11 +349,8 @@ export default function WidgetClient({ initialAccounts, initialError }: WidgetCl
     <div className={`w-full max-w-md ${theme.colors.cardBackground} ${theme.styles.cardShadow} overflow-hidden relative`}>
       {/* Switching overlay */}
       {state.switching && (
-        <div className="absolute inset-0 bg-white/70 z-50 flex items-center justify-center backdrop-blur-[1px]">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-3 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
-            <p className="text-sm text-gray-500 font-medium">Switching account…</p>
-          </div>
+        <div className="absolute inset-0 bg-white/80 z-50 flex items-center justify-center backdrop-blur-[1px]">
+          <PrathamSSOLoader size={96} label="Switching account…" />
         </div>
       )}
 

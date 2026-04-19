@@ -139,9 +139,12 @@ export default async function ConnectedAppsPage({ params }: PageProps) {
     await switchActiveAccount(sessionId!, accountId);
   }
 
-  // Logged in - show connected apps carousel
+  // Logged in - show connected apps carousel.
+  // Explicit height: the nested WebGL canvas (InfiniteMenu) needs a non-zero
+  // height, and `h-full` here collapses because the flex ancestor chain has
+  // no committed height on mobile. Use dvh with a mobile floor.
   return (
-    <div className="h-full flex flex-col items-center justify-center">
+    <div className="flex flex-col items-center justify-center w-full h-[70dvh] min-h-[420px] md:min-h-[520px]">
         <ConnectedAppsList />
     </div>
   );

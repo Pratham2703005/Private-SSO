@@ -7,3 +7,4 @@ export { QuickActionPills } from "./quick-action-pills";
 export { SearchBar } from "./search-bar";
 export { LandingHeader } from "./landing-header";
 export { LandingHero } from "./landing-hero";
+export { PrathamSSOLoader } from "./pratham-sso-loader";
