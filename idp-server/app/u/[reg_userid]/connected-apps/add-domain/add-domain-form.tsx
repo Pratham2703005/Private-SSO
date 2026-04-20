@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AddDomainStep1 } from './AddDomainStep1';
 import { AddDomainStep2 } from './AddDomainStep2';
 import { AddDomainStep3 } from './AddDomainStep3';
+import { CopyButton } from './CopyButton';
 import { toast } from 'robot-toast';
 import type { OAuthClient } from '@/types/database';
 
@@ -17,7 +18,7 @@ interface AddDomainFormProps {
   existingClient?: OAuthClient;
 }
 
-type AddDomainStep = 'basic' | 'scopes' | 'uris';
+type AddDomainStep = 'basic' | 'scopes' | 'uris' | 'done';
 
 // Helper to parse scopes string into boolean object
 function parseScopesString(scopesString: string | undefined): {
@@ -58,6 +59,7 @@ export function AddDomainForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [credentials, setCredentials] = useState<{ clientId: string; clientSecret: string } | null>(null);
 
   // Initialize form data from existing client if editing
   const [formData, setFormData] = useState({
@@ -252,7 +254,21 @@ export function AddDomainForm({
         const errorData = await response.json();
         throw new Error(errorData.error || `Failed to ${isEdit ? 'update' : 'create'} OAuth client`);
       }
-      router.push(`/u/${regUserId}/connected-apps`);
+
+      if (isEdit) {
+        router.push(`/u/${regUserId}/connected-apps`);
+        return;
+      }
+
+      const data = await response.json();
+      const clientSecret = data?.client?.client_secret;
+      const clientIdFromServer = data?.client?.client_id || generatedClientId;
+      if (clientSecret) {
+        setCredentials({ clientId: clientIdFromServer, clientSecret });
+        setStep('done');
+      } else {
+        router.push(`/u/${regUserId}/connected-apps`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       toast({
@@ -285,6 +301,11 @@ export function AddDomainForm({
       title: 'Configure Redirect URIs',
       subtitle: 'Specify where users should be redirected after authentication.',
       helper: 'Use HTTPS in production. Each URI should be on a new line.',
+    },
+    done: {
+      title: 'Save your client secret',
+      subtitle: 'This is the only time we will show your client secret. Copy it now and store it securely.',
+      helper: 'The client_secret is required by your backend when exchanging OAuth codes at the IdP token endpoint.',
     },
   } as const;
 
@@ -421,6 +442,77 @@ export function AddDomainForm({
                 isLoading={loading}
                 isEdit={isEdit}
               />
+            )}
+
+            {step === 'done' && credentials && (
+              <div className="animate-fade-in space-y-4">
+                <div
+                  style={{
+                    backgroundColor: 'color-mix(in srgb, var(--warning, #f59e0b) 10%, transparent)',
+                    borderColor: 'var(--warning, #f59e0b)',
+                    color: 'var(--warning, #f59e0b)',
+                  }}
+                  className="flex items-start gap-3 px-4 py-3 border rounded-xl text-sm"
+                >
+                  <svg className="shrink-0 mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2zm0-6h2v5h-2z" />
+                  </svg>
+                  <span>
+                    <strong className="font-medium">Copy your client secret now.</strong> For security, the IdP stores only a hash — this value will not be shown again.
+                  </span>
+                </div>
+
+                <div>
+                  <label style={{ color: 'var(--text-secondary)' }} className="block text-xs font-medium uppercase tracking-widest mb-1.5">
+                    Client ID
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={credentials.clientId}
+                      readOnly
+                      style={{
+                        color: 'var(--text-secondary)',
+                        backgroundColor: 'var(--input-bg)',
+                        borderColor: 'var(--border)',
+                      }}
+                      className="flex-1 px-3 py-2 border rounded-lg text-xs font-mono cursor-default select-all focus:outline-none focus:ring-1"
+                    />
+                    <CopyButton text={credentials.clientId} label="Copy Client ID" />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ color: 'var(--text-secondary)' }} className="block text-xs font-medium uppercase tracking-widest mb-1.5">
+                    Client Secret<span className="ml-1 normal-case tracking-normal font-normal text-[10px] opacity-60">shown once</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={credentials.clientSecret}
+                      readOnly
+                      style={{
+                        color: 'var(--text)',
+                        backgroundColor: 'var(--input-bg)',
+                        borderColor: 'var(--border)',
+                      }}
+                      className="flex-1 px-3 py-2 border rounded-lg text-xs font-mono cursor-default select-all focus:outline-none focus:ring-1"
+                    />
+                    <CopyButton text={credentials.clientSecret} label="Copy Client Secret" />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/u/${regUserId}/connected-apps`)}
+                    style={{ backgroundColor: 'var(--blue-btn)' }}
+                    className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-white text-sm font-medium transition-all hover:bg-(--blue-btn-hover)"
+                  >
+                    I&apos;ve saved it — continue
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>

@@ -117,6 +117,13 @@ export function SSOProvider({
       };
     }
 
+    // Safety net: if performSessionFetch gets aborted (e.g., navigation to IdP
+    // mid-fetch on the previous mount and then a bfcache-less back-nav), guarantee
+    // that loading resolves after 8s so the UI can never stay stuck on "Logging you in…".
+    const safetyTimer = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 8000);
+
     performSessionFetch()
       .then(newSession => {
         if (mounted) {
@@ -126,33 +133,45 @@ export function SSOProvider({
             emitterRef.current.emit('sessionRefresh', newSession);
           }
         }
+      })
+      .finally(() => {
+        clearTimeout(safetyTimer);
       });
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
     };
   }, [performSessionFetch, onSessionUpdate]);
 
   /**
-   * Event-based refresh: visibility/focus changes
+   * Event-based refresh: visibility / focus / bfcache restore.
+   * `pageshow` with persisted=true fires when the browser restores the page
+   * from the back/forward cache — in that case a pending /api/me from the
+   * first load may have been aborted, leaving `loading` stuck true. We
+   * always clear `loading` here so the UI can recover.
    */
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        fetchSessionWithDedup();
-      }
+    const refresh = () => {
+      fetchSessionWithDedup().finally(() => setLoading(false));
     };
 
-    const handleFocus = () => {
-      fetchSessionWithDedup();
+    const handleVisibilityChange = () => {
+      if (!document.hidden) refresh();
+    };
+
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) refresh();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('pageshow', handlePageShow);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('pageshow', handlePageShow);
     };
   }, [fetchSessionWithDedup]);
 
