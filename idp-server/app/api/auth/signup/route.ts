@@ -11,9 +11,16 @@ import {
 } from "@/lib/db";
 import { generateAccessToken, generateRefreshToken } from "@/lib/jwt";
 import { setMasterCookie, hashToken } from "@/lib/utils";
+import { rateLimit, getClientIp, rateLimited } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const ipLimit = rateLimit(`signup:ip:${ip}`, 10, 60 * 60 * 1000);
+    if (!ipLimit.allowed) {
+      return rateLimited("Too many signups from this IP", ipLimit.retryAfterSeconds);
+    }
+
     const body = await request.json();
     const validation = SignupSchema.safeParse(body);
 

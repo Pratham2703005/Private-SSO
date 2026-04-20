@@ -178,15 +178,23 @@ export function SSOProvider({
       console.warn('[SSOProvider] Failed to append widget script', err);
     }
 
+    let idpOrigin: string | null = null;
+    try {
+      idpOrigin = new URL(idpServer).origin;
+    } catch {
+      console.warn('[SSOProvider] Invalid idpServer URL, widget postMessage origin check disabled');
+    }
+
     const handleMessage = async (event: MessageEvent) => {
-      console.log('[SSOProvider] Message received:', { type: event.data?.type, origin: event.origin, data: event.data });
-      
-      // Don't validate origin too strictly - widget can be embedded from IDP domain
-      // Just check that event has a type property
-      if (!event.data?.type) {
-        console.warn('[SSOProvider] Invalid message - no type:', event.data);
+      if (!event.data?.type) return;
+
+      // Strict origin check: only accept widget messages from the configured IdP origin.
+      if (idpOrigin && event.origin !== idpOrigin) {
+        console.warn('[SSOProvider] Rejected message from unexpected origin:', event.origin);
         return;
       }
+
+      console.log('[SSOProvider] Message received:', { type: event.data.type, origin: event.origin });
 
       // Capture widget iframe (can happen multiple times if needed)
       if (!widgetFrameRef.current && event.source && event.data?.type) {

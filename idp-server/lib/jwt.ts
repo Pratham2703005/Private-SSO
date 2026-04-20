@@ -27,7 +27,7 @@ export function generateAccessToken(
 
   return jwt.sign(payload, privateKey, {
     algorithm: "RS256",
-    expiresIn: "1d",
+    expiresIn: "15m",
   });
 }
 

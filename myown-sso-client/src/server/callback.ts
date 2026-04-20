@@ -115,16 +115,20 @@ export function handleCallback(config: HandleCallbackConfig) {
 
       // Exchange code for tokens at IDP
       const tokenUrl = new URL(`${config.idpServer}${API_PATHS.idpToken}`);
+      const tokenRequestBody: Record<string, string> = {
+        grant_type: 'authorization_code',
+        code,
+        client_id: config.clientId,
+        redirect_uri: config.redirectUri,
+        code_verifier: pkceVerifier,
+      };
+      if (config.clientSecret) {
+        tokenRequestBody.client_secret = config.clientSecret;
+      }
       const tokenResponse = await fetch(tokenUrl.toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          grant_type: 'authorization_code',
-          code,
-          client_id: config.clientId,
-          redirect_uri: config.redirectUri,
-          code_verifier: pkceVerifier,
-        }),
+        body: JSON.stringify(tokenRequestBody),
       });
 
       if (!tokenResponse.ok) {
@@ -191,6 +195,21 @@ export function handleCallback(config: HandleCallbackConfig) {
 
       // Clear PKCE verifier cookie
       response.cookies.delete(DEFAULT_CONFIG.cookies.pkceVerifier);
+
+      if (config.onSessionEstablished && tokenData.session_bootstrap) {
+        try {
+          await config.onSessionEstablished({
+            sessionId: tokenData.session_id,
+            user: tokenData.session_bootstrap.user,
+            account: tokenData.session_bootstrap.account,
+            accounts: tokenData.session_bootstrap.accounts,
+            activeAccountId: tokenData.session_bootstrap.activeAccountId,
+          });
+        } catch (hookErr) {
+          // Non-fatal: user is still authenticated; the app's sync fallback can recover
+          console.error('[handleCallback] onSessionEstablished failed:', hookErr);
+        }
+      }
 
       return response;
     } catch (error) {

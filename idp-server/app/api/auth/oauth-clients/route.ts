@@ -1,16 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createOAuthClient } from "@/lib/db";
+import { createOAuthClient, getSession } from "@/lib/db";
+import { getMasterCookie } from "@/lib/utils";
 import { uploadImageIfProvided } from "@/lib/image-upload";
 
 /**
  * POST /api/auth/oauth-clients
- * 
- * Create a new OAuth client configuration
- * Accepts FormData with optional image file
- * Requires authenticated session
+ *
+ * Create a new OAuth client configuration.
+ * Requires an authenticated IdP session cookie or a matching ADMIN_API_KEY header.
  */
 export async function POST(request: NextRequest) {
   try {
+    const adminKey = process.env.ADMIN_API_KEY;
+    const providedAdminKey = request.headers.get("x-admin-key");
+    const isAdminRequest = !!adminKey && !!providedAdminKey && providedAdminKey === adminKey;
+
+    if (!isAdminRequest) {
+      const sessionId = getMasterCookie(request);
+      if (!sessionId) {
+        return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+      }
+      const session = await getSession(sessionId);
+      if (!session || (session.expires_at && new Date(session.expires_at) < new Date())) {
+        return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+      }
+    }
+
     const contentType = request.headers.get("content-type") || "";
     let client_name: string | undefined;
     let domain: string | undefined;

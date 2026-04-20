@@ -43,9 +43,17 @@ export interface StartAuthConfig {
 
 export interface HandleCallbackConfig {
   clientId: string;
+  clientSecret?: string;
   idpServer: string;
   redirectUri: string;
   oauthSecret: string;
+  onSessionEstablished?: (payload: {
+    sessionId: string;
+    user: User;
+    account: Account;
+    accounts: Account[];
+    activeAccountId: string;
+  }) => Promise<void> | void;
 }
 
 export interface ValidateSessionConfig {

@@ -14,9 +14,16 @@ import {
   generateRefreshToken,
 } from "@/lib/jwt";
 import { setMasterCookie, hashToken } from "@/lib/utils";
+import { rateLimit, getClientIp, rateLimited } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const ipLimit = rateLimit(`login:ip:${ip}`, 20, 15 * 60 * 1000);
+    if (!ipLimit.allowed) {
+      return rateLimited("Too many login attempts from this IP", ipLimit.retryAfterSeconds);
+    }
+
     const body = await request.json();
     const validation = LoginSchema.safeParse(body);
 
@@ -31,6 +38,12 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, password } = validation.data;
+
+    const emailLimit = rateLimit(`login:email:${email.toLowerCase()}`, 5, 15 * 60 * 1000);
+    if (!emailLimit.allowed) {
+      return rateLimited("Too many login attempts for this account", emailLimit.retryAfterSeconds);
+    }
+
     const user = await getUserByEmail(email);
 
     if (!user) {

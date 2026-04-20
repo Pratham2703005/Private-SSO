@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import {
   getAuthorizationCode,
   markAuthorizationCodeAsRedeemed,
@@ -8,9 +9,47 @@ import {
   storeRefreshToken,
   validateRefreshToken,
   rotateRefreshToken,
+  getOAuthClient,
 } from "@/lib/db";
 import { generateAccessToken, generateIdToken } from "@/lib/jwt";
 import { TokenResponse, TokenErrorResponse } from "@/lib/schemas";
+import { rateLimit, getClientIp, rateLimited } from "@/lib/rate-limit";
+
+async function authenticateClient(clientId: string, clientSecret: string | undefined): Promise<{ ok: true } | { ok: false; response: NextResponse }> {
+  const client = await getOAuthClient(clientId);
+  if (!client || client.is_active === false) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "invalid_client", error_description: "Unknown or inactive client" } as TokenErrorResponse,
+        { status: 401 }
+      ),
+    };
+  }
+
+  if (client.client_secret_hash) {
+    if (!clientSecret) {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { error: "invalid_client", error_description: "client_secret is required for this client" } as TokenErrorResponse,
+          { status: 401 }
+        ),
+      };
+    }
+    const valid = await bcrypt.compare(clientSecret, client.client_secret_hash);
+    if (!valid) {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { error: "invalid_client", error_description: "Invalid client_secret" } as TokenErrorResponse,
+          { status: 401 }
+        ),
+      };
+    }
+  }
+  return { ok: true };
+}
 
 /**
  * POST /api/auth/token
@@ -52,6 +91,12 @@ import { TokenResponse, TokenErrorResponse } from "@/lib/schemas";
  */
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const ipLimit = rateLimit(`token:ip:${ip}`, 60, 60 * 1000);
+    if (!ipLimit.allowed) {
+      return rateLimited("Too many token requests", ipLimit.retryAfterSeconds);
+    }
+
     const body = await request.json();
 
     const grant_type = body.grant_type;
@@ -97,12 +142,13 @@ export async function POST(request: NextRequest) {
  */
 async function handleAuthorizationCodeGrant(body: {
   client_id?: string;
+  client_secret?: string;
   redirect_uri?: string;
   code?: string;
   code_verifier?: string;
 }) {
   try {
-    const { client_id, redirect_uri, code, code_verifier } = body;
+    const { client_id, client_secret, redirect_uri, code, code_verifier } = body;
 
     // Validate required params for authorization_code grant
     if (!code || !code_verifier || !client_id || !redirect_uri) {
@@ -113,6 +159,9 @@ async function handleAuthorizationCodeGrant(body: {
       };
       return NextResponse.json(errorResponse, { status: 400 });
     }
+
+    const clientAuth = await authenticateClient(client_id, client_secret);
+    if (!clientAuth.ok) return clientAuth.response;
 
     // ✅ RFC 7636 code_verifier format validation
     // Valid format: 43-128 characters from [A-Za-z0-9\-._~]
@@ -287,8 +336,8 @@ async function handleAuthorizationCodeGrant(body: {
       .update(refreshTokenValue)
       .digest("hex");
 
-    await storeRefreshToken(authCode.user_id, authCode.client_id, refreshTokenHash);
-    console.log('[Token] Refresh token stored');
+    await storeRefreshToken(authCode.user_id, authCode.client_id, refreshTokenHash, undefined, undefined, scopesArray);
+    console.log('[Token] Refresh token stored with scopes:', scopesArray);
 
     // Mark code as redeemed (prevents reuse)
     await markAuthorizationCodeAsRedeemed(code);
@@ -303,7 +352,7 @@ async function handleAuthorizationCodeGrant(body: {
       session_id: authCode.session_id, // ⭐ Return the bound session_id
       session_state: "active", // Multi-account/silent login support
       token_type: "Bearer",
-      expires_in: 86400, // 1 day in seconds
+      expires_in: 900, // 15 minutes (aligned with access token TTL)
       session_bootstrap: {
         user: { id: user.id, email: primaryAccount.email, name: primaryAccount.name },
         account: { id: primaryAccount.id, email: primaryAccount.email, name: primaryAccount.name },
@@ -334,10 +383,11 @@ async function handleAuthorizationCodeGrant(body: {
  */
 async function handleRefreshTokenGrant(body: {
   client_id?: string;
+  client_secret?: string;
   refresh_token?: string;
 }) {
   try {
-    const { client_id, refresh_token } = body;
+    const { client_id, client_secret, refresh_token } = body;
 
     // Validate required params
     if (!client_id || !refresh_token) {
@@ -348,6 +398,9 @@ async function handleRefreshTokenGrant(body: {
       };
       return NextResponse.json(errorResponse, { status: 400 });
     }
+
+    const clientAuth = await authenticateClient(client_id, client_secret);
+    if (!clientAuth.ok) return clientAuth.response;
 
     console.log('[Token] Refresh token grant request:', {
       client_id,
@@ -442,11 +495,10 @@ async function handleRefreshTokenGrant(body: {
 
     // Generate new tokens
     console.log('[Token] Generating new access_token, id_token, and refresh_token');
-    
-    // ✅ For refresh token grants, pass scopes (currently empty - enhancement: store original scopes in refresh_tokens table)
-    // TODO: In future, retrieve original scopes from refresh_tokens table in DB
-    const scopesArray: string[] = [];
-    
+
+    const scopesArray: string[] = Array.isArray(storedToken.scopes) ? storedToken.scopes : [];
+    console.log('[Token] Preserving scopes on rotation:', scopesArray);
+
     const newAccessToken = generateAccessToken(
       storedToken.user_id,
       primaryAccount.email,
@@ -473,13 +525,14 @@ async function handleRefreshTokenGrant(body: {
     await rotateRefreshToken(refreshTokenHash, newRefreshTokenHash);
     console.log('[Token] Old refresh token marked as used, new token issued');
 
-    // Store new refresh token with account and session info preserved
+    // Store new refresh token with account, session, and scopes preserved
     await storeRefreshToken(
-      storedToken.user_id, 
-      storedToken.account_id, 
-      client_id, 
+      storedToken.user_id,
+      storedToken.account_id,
+      client_id,
       newRefreshTokenHash,
-      storedToken.session_id
+      storedToken.session_id,
+      scopesArray
     );
     console.log('[Token] New refresh token stored');
 
@@ -491,7 +544,7 @@ async function handleRefreshTokenGrant(body: {
       session_id: storedToken.session_id,
       session_state: "active",
       token_type: "Bearer",
-      expires_in: 86400, // 1 day in seconds
+      expires_in: 900, // 15 minutes (aligned with access token TTL)
     };
     return NextResponse.json(tokenResponse, { status: 200 });
   } catch (error) {

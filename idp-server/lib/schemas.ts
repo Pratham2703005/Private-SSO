@@ -3,12 +3,17 @@ import { z } from "zod";
 // Request/Response Schemas
 export const LoginSchema = z.object({
   email: z.string().email("Invalid email format"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 export const SignupSchema = z.object({
   email: z.string().email("Invalid email format"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[a-z]/, "Password must contain a lowercase letter")
+    .regex(/[A-Z]/, "Password must contain an uppercase letter")
+    .regex(/[0-9]/, "Password must contain a digit"),
   name: z.string().min(2, "Name must be at least 2 characters"),
 });
 

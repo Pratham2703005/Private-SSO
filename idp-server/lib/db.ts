@@ -22,7 +22,7 @@ export async function createUser(
   password: string
 ) {
   const userId = uuidv4();
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, 12);
 
   try {
     await supabase.from("users").insert([
@@ -207,7 +207,8 @@ export async function storeRefreshToken(
   param2?: string,
   param3?: string,
   param4?: string,
-  param5?: string
+  param5?: string,
+  scopes: string[] = []
 ) {
   // Handle both 3/4-parameter and 5-parameter calls
   let accountId: string | null = null;
@@ -238,23 +239,31 @@ export async function storeRefreshToken(
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
   try {
-    // Note: revoked and revoked_at columns will use their default values if they exist
-    const { error } = await supabase.from("refresh_tokens").insert([
-      {
-        id: tokenId,
-        user_id: userId,
-        token_hash: tokenHash,
-        client_id: clientId,
-        account_id: accountId,
-        session_id: sessionId,
-        expires_at: expiresAt.toISOString(),
-        used_at: null,
-        replaced_by_token_hash: null,
-        created_at: new Date().toISOString(),
-      },
-    ]);
+    // Requires `scopes text[] default '{}'` column in refresh_tokens table.
+    // If the column is missing, Supabase returns an error; we fall back to an insert without scopes
+    // so existing deployments keep working until the migration is applied.
+    const basePayload = {
+      id: tokenId,
+      user_id: userId,
+      token_hash: tokenHash,
+      client_id: clientId,
+      account_id: accountId,
+      session_id: sessionId,
+      expires_at: expiresAt.toISOString(),
+      used_at: null,
+      replaced_by_token_hash: null,
+      created_at: new Date().toISOString(),
+    };
 
-    if (error) throw error;
+    const { error } = await supabase.from("refresh_tokens").insert([{ ...basePayload, scopes }]);
+    if (error) {
+      if (error.message?.toLowerCase().includes("scopes")) {
+        const fallback = await supabase.from("refresh_tokens").insert([basePayload]);
+        if (fallback.error) throw fallback.error;
+      } else {
+        throw error;
+      }
+    }
   } catch (error) {
     console.error("[DB] Error storing refresh token:", error);
     throw error;
@@ -468,7 +477,7 @@ export async function createOAuthClient(params: {
     // Generate a secure client secret
     const clientSecret = crypto.randomBytes(32).toString("hex");
     // Hash the client secret before storing
-    const clientSecretHash = await bcrypt.hash(clientSecret, 10);
+    const clientSecretHash = await bcrypt.hash(clientSecret, 12);
 
     console.log("[createOAuthClient] Creating new OAuth client:", {
       clientId,
